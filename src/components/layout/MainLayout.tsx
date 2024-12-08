@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ModelStructureContent } from '../model-structure/ModelStructureContent';
 import { PropertyPanel } from '../sidebar/PropertyPanel';
 import { Toolbar } from '../toolbar/Toolbar';
+import { FileMenu } from '../menus/FileMenu';
 
 const Layout = styled.div`
   width: 100vw;
@@ -15,13 +16,23 @@ const Layout = styled.div`
 `;
 
 const TopBar = styled.div`
-  height: 48px;
-  background: #2c3e50;
+  height: 28px;
+  background: #7092BE;
   display: flex;
   align-items: center;
   padding: 0 16px;
   color: white;
   z-index: 20;
+`;
+
+const Logo = styled.h1`
+  margin-right: 32px;
+  font-size: 14px;
+`;
+
+const MenuBar = styled.div`
+  display: flex;
+  gap: 8px;
 `;
 
 const MainContent = styled.div`
@@ -62,24 +73,28 @@ const PropertiesPanel = styled(motion.div)`
 `;
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
-  const selectedObjectId = useSceneStore(state => state.selectedObjectId);
-  const setSelectedObject = useSceneStore(state => state.setSelectedObject);
+  const selectedObjectIds = useSceneStore(state => state.selectedObjectIds);
+  const setSelectedObjects = useSceneStore(state => state.setSelectedObjects);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setSelectedObject(null);
+        setSelectedObjects([]);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setSelectedObject]);
+  }, [setSelectedObjects]);
 
   return (
     <Layout>
       <TopBar>
-        <h1>WebCAD</h1>
+        <Logo>WebCAD</Logo>
+        <MenuBar>
+          <FileMenu />
+          {/* Add more menus here later */}
+        </MenuBar>
       </TopBar>
       <Toolbar />
       <MainContent>
@@ -92,12 +107,12 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           <ModelStructureContent />
         </ModelStructure>
         
-        <ViewportContainer $isPropertiesPanelOpen={!!selectedObjectId}>
+        <ViewportContainer $isPropertiesPanelOpen={selectedObjectIds.length > 0}>
           {children}
         </ViewportContainer>
 
         <AnimatePresence>
-          {selectedObjectId && (
+          {selectedObjectIds.length > 0 && (
             <PropertiesPanel
               initial={{ x: 300 }}
               animate={{ x: 0 }}
