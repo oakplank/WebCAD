@@ -46,6 +46,13 @@ interface VectorInputProps {
 }
 
 export function VectorInput({ value, onChange, labels = ['X', 'Y', 'Z'], unit }: VectorInputProps) {
+  const handleChange = (index: number, inputValue: string) => {
+    const parsedValue = parseFloat(inputValue);
+    if (!isNaN(parsedValue) || inputValue === '-' || inputValue === '') {
+      onChange(index, inputValue);
+    }
+  };
+
   return (
     <VectorInputGroup>
       {value.map((val, index) => (
@@ -53,8 +60,8 @@ export function VectorInput({ value, onChange, labels = ['X', 'Y', 'Z'], unit }:
           <AxisLabel>{labels[index]}</AxisLabel>
           <Input
             type="number"
-            value={Number(val.toFixed(3))}
-            onChange={(e) => onChange(index, e.target.value)}
+            value={typeof val === 'number' && !isNaN(val) ? val.toFixed(3) : ''}
+            onChange={(e) => handleChange(index, e.target.value)}
             step={unit === '°' ? '15' : '0.1'}
           />
           {unit && <UnitLabel>{unit}</UnitLabel>}

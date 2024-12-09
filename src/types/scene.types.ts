@@ -2,7 +2,7 @@ import { Theme } from '../store/settingsStore';
 
 export type ViewMode = 'shaded' | 'wireframe' | 'surface';
 
-export type GeometryType = 'cube' | 'sphere' | 'cylinder' | 'imported' | 'group';
+export type GeometryType = 'cube' | 'sphere' | 'cylinder' | 'imported' | 'group' | 'merged';
 
 export interface MaterialData {
   color: string;
@@ -18,6 +18,13 @@ export interface MaterialData {
   envMap?: string;
 }
 
+export interface GeometryData {
+  vertices: number[];
+  indices: number[];
+  normals: number[];
+  uvs?: number[];
+}
+
 export interface SceneObject {
   id: string;
   name: string;
@@ -29,12 +36,7 @@ export interface SceneObject {
   visible: boolean;
   parentId: string | null;
   children: string[];
-  geometry?: {
-    vertices: number[];
-    indices: number[];
-    normals: number[];
-    uvs?: number[];
-  };
+  geometry?: GeometryData;
   material?: MaterialData;
 }
 
@@ -61,6 +63,7 @@ export interface SceneState {
   setObjects: (objects: SceneObject[]) => void;
   groupObjects: (objectIds: string[]) => void;
   ungroupObjects: (groupId: string) => void;
+  mergeObjects: (objectIds: string[]) => void;
   undo: () => void;
   redo: () => void;
   canUndo: () => boolean;

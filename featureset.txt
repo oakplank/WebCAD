@@ -1,0 +1,162 @@
+# WebCAD Feature Set
+
+## Current Features
+
+### Viewport
+- Real-time 3D rendering with Three.js
+- Camera controls (orbit, pan, zoom)
+- Grid system with customizable visibility
+- Multiple view modes:
+  - Shaded (realistic lighting)
+  - Wireframe (mesh visualization)
+  - Surface (solid color with edges)
+- Object selection and highlighting
+- Transform controls for direct manipulation
+
+### Toolbar
+- Basic shape creation:
+  - Cube
+  - Cylinder
+  - Sphere
+- View mode switching
+- Undo/Redo functionality
+- Tool-specific options
+
+### Model Structure
+- Hierarchical object tree
+- Visibility toggles
+- Object renaming
+- Context menu actions:
+  - Duplicate
+  - Delete
+  - Rename
+- Multi-select support
+
+### Property Panel
+- Transform controls:
+  - Position (XYZ)
+  - Rotation (degrees)
+  - Scale (with proportional scaling)
+- Color picker
+- Property-specific units
+- Real-time updates
+
+### Settings
+- Theme switching (Light/Dark)
+- Background color customization
+- Grid visibility toggle
+- View distance adjustment
+
+### File Operations
+- Save scene to GLB
+- Load scene from GLB
+- Export options (planned)
+
+## Planned Features
+
+### Authentication & Authorization
+- User registration and login
+- OAuth integration (Google, GitHub)
+- Role-based access control
+- Session management
+- Firebase Authentication integration
+
+### Cloud Infrastructure
+- MongoDB for user data and metadata
+- AWS S3 for model storage
+- Real-time collaboration support
+- Version control for models
+- Automatic backups
+
+### Enhanced Modeling
+- Boolean operations
+- Advanced primitives
+- Custom geometry creation
+- Parametric modeling
+- Constraints and relationships
+- Materials library
+- Texturing support
+
+### Project Management
+- Project organization
+- Sharing and permissions
+- Comments and annotations
+- Version history
+- Export to various formats
+
+### Collaboration
+- Real-time multi-user editing
+- Change tracking
+- Comments and markup
+- Share links and embeds
+- Team management
+
+### Analytics & Monitoring
+- Usage statistics
+- Performance metrics
+- Error tracking
+- User behavior analysis
+
+### Marketplace
+- Premium features
+- Asset store
+- Custom plugins
+- Subscription plans:
+  - Free tier
+  - Professional
+  - Enterprise
+
+### API & Integration
+- REST API
+- WebSocket support
+- Custom plugin system
+- Integration with:
+  - CAD software
+  - 3D printers
+  - Version control
+  - Project management tools
+
+### Performance Optimization
+- WebAssembly modules
+- Worker threads
+- GPU acceleration
+- Progressive loading
+- Caching strategies
+
+### Mobile Support
+- Responsive design
+- Touch controls
+- Mobile-specific UI
+- Offline capabilities
+- Progressive Web App
+
+## Development Timeline
+
+Phase 1: Core Modeling (Current)
+- Basic shape manipulation
+- File operations
+- UI/UX improvements
+
+Phase 2: Cloud Integration
+- User authentication
+- Data persistence
+- File management
+- Basic collaboration
+
+Phase 3: Advanced Features
+- Boolean operations
+- Advanced modeling tools
+- Materials system
+- Performance optimization
+
+Phase 4: Marketplace & API
+- Subscription system
+- Asset store
+- API development
+- Plugin system
+
+Phase 5: Enterprise Features
+- Team management
+- Advanced security
+- Custom integrations
+- Support services

@@ -49,6 +49,9 @@ export function Viewport() {
     }
   };
 
+  // Only render root-level objects (those without parents)
+  const rootObjects = objects.filter(obj => !obj.parentId);
+
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <Canvas
@@ -89,7 +92,7 @@ export function Viewport() {
           up={[0, 0, 1]}
         />
         
-        {objects.map(object => (
+        {rootObjects.map(object => (
           object.type === 'group' ? (
             <GroupObject key={object.id} object={object} />
           ) : (

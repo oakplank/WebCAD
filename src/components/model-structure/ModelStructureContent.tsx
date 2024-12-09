@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import styled from '@emotion/styled';
 import { useSceneStore } from '../../store/sceneStore';
 import { useSettingsStore } from '../../store/settingsStore';
-import { FaEye, FaEyeSlash, FaChevronRight, FaChevronDown, FaCopy, FaTrash, FaPen } from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaChevronRight, FaChevronDown, FaCopy, FaTrash, FaPen, FaObjectGroup, FaObjectUngroup, FaLayerGroup } from 'react-icons/fa';
 import { SceneObject } from '../../types/scene.types';
 
 const Container = styled.div<{ $theme: 'light' | 'dark' }>`
@@ -100,6 +100,14 @@ const RenameInput = styled.input<{ $theme: 'light' | 'dark' }>`
 `;
 
 export function ModelStructureContent() {
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    objectId: string;
+  } | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+
   const objects = useSceneStore(state => state.objects);
   const selectedObjectIds = useSceneStore(state => state.selectedObjectIds);
   const setSelectedObjects = useSceneStore(state => state.setSelectedObjects);
@@ -108,15 +116,8 @@ export function ModelStructureContent() {
   const duplicateObject = useSceneStore(state => state.duplicateObject);
   const groupObjects = useSceneStore(state => state.groupObjects);
   const ungroupObjects = useSceneStore(state => state.ungroupObjects);
+  const mergeObjects = useSceneStore(state => state.mergeObjects);
   const theme = useSettingsStore(state => state.theme);
-
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-  const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
-    objectId: string;
-  } | null>(null);
-  const [renamingId, setRenamingId] = useState<string | null>(null);
 
   const toggleExpanded = useCallback((e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -204,6 +205,13 @@ export function ModelStructureContent() {
       setContextMenu(null);
     }
   }, [contextMenu, ungroupObjects]);
+
+  const handleMergeSelected = useCallback(() => {
+    if (selectedObjectIds.length > 1) {
+      mergeObjects(selectedObjectIds);
+    }
+    setContextMenu(null);
+  }, [selectedObjectIds, mergeObjects]);
 
   React.useEffect(() => {
     const handleClickOutside = () => {
@@ -302,13 +310,18 @@ export function ModelStructureContent() {
             <FaCopy size={12} /> Duplicate
           </MenuItem>
           {selectedObjectIds.length > 1 && (
-            <MenuItem onClick={handleGroupSelected} $theme={theme}>
-              Group Selected
-            </MenuItem>
+            <>
+              <MenuItem onClick={handleGroupSelected} $theme={theme}>
+                <FaObjectGroup size={12} /> Group
+              </MenuItem>
+              <MenuItem onClick={handleMergeSelected} $theme={theme}>
+                <FaLayerGroup size={12} /> Merge
+              </MenuItem>
+            </>
           )}
           {objects.find(obj => obj.id === contextMenu.objectId)?.type === 'group' && (
             <MenuItem onClick={handleUngroup} $theme={theme}>
-              Ungroup
+              <FaObjectUngroup size={12} /> Ungroup
             </MenuItem>
           )}
           <Divider $theme={theme} />

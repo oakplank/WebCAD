@@ -1,5 +1,7 @@
 import { create } from 'zustand';
-import { SceneState, SceneObject, ViewMode, HistoryState } from '../types/scene.types';
+import { SceneState, SceneObject, ViewMode, HistoryState, GeometryData } from '../types/scene.types';
+import { mergeGeometries } from '../utils/geometryUtils';
+import * as THREE from 'three';
 
 const MAX_HISTORY = 50;
 
@@ -12,20 +14,6 @@ const addToHistory = (state: HistoryState, history: HistoryState[], currentIndex
   return newHistory;
 };
 
-const updateChildrenVisibility = (objects: SceneObject[], parentId: string, visible: boolean): SceneObject[] => {
-  return objects.map(obj => {
-    if (obj.parentId === parentId) {
-      const updatedObj = { ...obj, visible };
-      // Recursively update children if this is also a group
-      if (obj.type === 'group' && obj.children.length > 0) {
-        return updateChildrenVisibility(objects, obj.id, visible)[objects.findIndex(o => o.id === obj.id)];
-      }
-      return updatedObj;
-    }
-    return obj;
-  });
-};
-
 export const useSceneStore = create<SceneState>((set, get) => ({
   objects: [],
   selectedObjectIds: [],
@@ -33,8 +21,12 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   history: [{ objects: [], selectedObjectIds: [] }],
   currentHistoryIndex: 0,
   hoveredObjectId: null,
+
   setHoveredObject: (id) => set({ hoveredObjectId: id }),
-  
+
+  canUndo: () => get().currentHistoryIndex > 0,
+  canRedo: () => get().currentHistoryIndex < get().history.length - 1,
+
   saveState: () => set(state => {
     const newState = { 
       objects: state.objects, 
@@ -46,17 +38,23 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       currentHistoryIndex: newHistory.length - 1
     };
   }),
-  
+
   addObject: (object) => set((state) => {
-    const newObjects = [...state.objects, { 
-      ...object, 
+    const newObject = {
+      ...object,
       id: crypto.randomUUID(),
       name: `${object.type}_${state.objects.length + 1}`,
       visible: true,
       parentId: null,
       children: []
-    }];
-    const newState = { objects: newObjects, selectedObjectIds: state.selectedObjectIds };
+    };
+
+    const newObjects = [...state.objects, newObject];
+    const newState = { 
+      objects: newObjects, 
+      selectedObjectIds: [newObject.id]
+    };
+
     const newHistory = addToHistory(newState, state.history, state.currentHistoryIndex);
     return {
       ...newState,
@@ -64,9 +62,8 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       currentHistoryIndex: newHistory.length - 1
     };
   }),
-  
+
   removeObject: (id) => set((state) => {
-    // First, remove all children recursively
     const getAllChildrenIds = (parentId: string): string[] => {
       const children = state.objects.filter(obj => obj.parentId === parentId);
       return children.reduce((acc, child) => [
@@ -94,19 +91,13 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       currentHistoryIndex: newHistory.length - 1
     };
   }),
-  
+
   updateObject: (id, updates, saveToHistory = true) => set((state) => {
-    let newObjects = [...state.objects];
+    const newObjects = [...state.objects];
     const objectIndex = newObjects.findIndex(obj => obj.id === id);
     
     if (objectIndex === -1) return state;
 
-    // If updating visibility of a group, update all children recursively
-    if ('visible' in updates && newObjects[objectIndex].type === 'group') {
-      newObjects = updateChildrenVisibility(newObjects, id, updates.visible as boolean);
-    }
-
-    // Update the object itself
     newObjects[objectIndex] = { ...newObjects[objectIndex], ...updates };
 
     const newState = { objects: newObjects, selectedObjectIds: state.selectedObjectIds };
@@ -122,8 +113,8 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       currentHistoryIndex: newHistory.length - 1
     };
   }),
-  
-  setSelectedObjects: (ids) => set({ selectedObjectIds: Array.isArray(ids) ? ids : [] }),
+
+  setSelectedObjects: (ids) => set({ selectedObjectIds: ids }),
   setViewMode: (mode: ViewMode) => set({ viewMode: mode }),
 
   duplicateObject: (id) => set((state) => {
@@ -152,10 +143,10 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       const newIndex = state.currentHistoryIndex - 1;
       const previousState = state.history[newIndex];
       return {
-        ...previousState,
-        history: state.history,
-        currentHistoryIndex: newIndex,
-        viewMode: state.viewMode
+        ...state,
+        objects: previousState.objects,
+        selectedObjectIds: previousState.selectedObjectIds,
+        currentHistoryIndex: newIndex
       };
     }
     return state;
@@ -166,17 +157,14 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       const newIndex = state.currentHistoryIndex + 1;
       const nextState = state.history[newIndex];
       return {
-        ...nextState,
-        history: state.history,
-        currentHistoryIndex: newIndex,
-        viewMode: state.viewMode
+        ...state,
+        objects: nextState.objects,
+        selectedObjectIds: nextState.selectedObjectIds,
+        currentHistoryIndex: newIndex
       };
     }
     return state;
   }),
-
-  canUndo: () => get().currentHistoryIndex > 0,
-  canRedo: () => get().currentHistoryIndex < get().history.length - 1,
 
   setObjects: (objects) => set((state) => {
     const newState = { objects, selectedObjectIds: [] };
@@ -274,18 +262,18 @@ export const useSceneStore = create<SceneState>((set, get) => ({
 
           return {
             ...obj,
-            parentId: null,
+            parentId: group.parentId,
             position: worldPosition,
             rotation: [
               obj.rotation[0] + groupRotation[0],
               obj.rotation[1] + groupRotation[1],
               obj.rotation[2] + groupRotation[2]
-            ],
+            ] as [number, number, number],
             scale: [
               obj.scale[0] * groupScale[0],
               obj.scale[1] * groupScale[1],
               obj.scale[2] * groupScale[2]
-            ]
+            ] as [number, number, number]
           };
         }
         return obj;
@@ -302,5 +290,56 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       history: newHistory,
       currentHistoryIndex: newHistory.length - 1
     };
+  }),
+
+  mergeObjects: (objectIds) => set((state) => {
+    const objectsToMerge = state.objects.filter(obj => objectIds.includes(obj.id));
+    if (objectsToMerge.length < 2) return state;
+
+    try {
+      const mergedGeometry = mergeGeometries(objectsToMerge);
+      const geometryData: GeometryData = {
+        vertices: Array.from(mergedGeometry.attributes.position.array),
+        indices: Array.from(mergedGeometry.index?.array || []),
+        normals: Array.from(mergedGeometry.attributes.normal.array),
+        uvs: mergedGeometry.attributes.uv ? Array.from(mergedGeometry.attributes.uv.array) : undefined
+      };
+
+      const center = new THREE.Vector3();
+      const box = new THREE.Box3().setFromBufferAttribute(mergedGeometry.attributes.position);
+      box.getCenter(center);
+
+      const newObject: SceneObject = {
+        id: crypto.randomUUID(),
+        name: `Merged_${state.objects.length + 1}`,
+        type: 'merged',
+        position: [center.x, center.y, center.z],
+        rotation: [0, 0, 0],
+        scale: [1, 1, 1],
+        color: objectsToMerge[0].color,
+        visible: true,
+        parentId: null,
+        children: [],
+        geometry: geometryData
+      };
+
+      const newObjects = state.objects.filter(obj => !objectIds.includes(obj.id));
+      newObjects.push(newObject);
+
+      const newState = {
+        objects: newObjects,
+        selectedObjectIds: [newObject.id]
+      };
+
+      const newHistory = addToHistory(newState, state.history, state.currentHistoryIndex);
+      return {
+        ...newState,
+        history: newHistory,
+        currentHistoryIndex: newHistory.length - 1
+      };
+    } catch (error) {
+      console.error('Failed to merge objects:', error);
+      return state;
+    }
   })
 }));

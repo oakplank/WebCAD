@@ -92,7 +92,7 @@ interface MainLayoutProps {
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
-  const selectedObjectIds = useSceneStore(state => state.selectedObjectIds);
+  const selectedObjectIds = useSceneStore(state => state.selectedObjectIds) || [];
   const theme = useSettingsStore(state => state.theme);
 
   return (

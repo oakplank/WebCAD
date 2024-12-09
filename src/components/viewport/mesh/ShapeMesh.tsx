@@ -1,51 +1,27 @@
-import React, { forwardRef } from 'react';
+import React from 'react';
 import * as THREE from 'three';
 import { GeometryType, ViewMode } from '../../../types/scene.types';
 import { createGeometry } from '../utils/geometryUtils';
-import { ThreeEvent } from '@react-three/fiber';
 
 interface ShapeMeshProps {
   type: GeometryType;
   color: string;
   viewMode: ViewMode;
-  position: [number, number, number];
-  rotation: [number, number, number];
-  scale: [number, number, number];
-  onClick: (e: ThreeEvent<MouseEvent>) => void;
-  onPointerOver: (e: ThreeEvent<PointerEvent>) => void;
-  onPointerOut: (e: ThreeEvent<PointerEvent>) => void;
 }
 
-const ShapeMesh = forwardRef<THREE.Mesh, ShapeMeshProps>(({
-  type,
-  color,
-  viewMode,
-  position,
-  rotation,
-  scale,
-  onClick,
-  onPointerOver,
-  onPointerOut
-}, ref) => {
+export function ShapeMesh({ type, color, viewMode }: ShapeMeshProps) {
   if (type === 'group' || type === 'imported') return null;
   
-  const geometry = createGeometry(type);
+  const geometry = React.useMemo(() => createGeometry(type), [type]);
 
   return (
-    <mesh
-      ref={ref}
-      position={position}
-      rotation={rotation}
-      scale={scale}
-      onClick={onClick}
-      onPointerOver={onPointerOver}
-      onPointerOut={onPointerOut}
-      geometry={geometry}
-    >
+    <>
+      <primitive object={geometry} attach="geometry" />
       {viewMode === 'surface' ? (
         <meshBasicMaterial 
           color={color}
           side={THREE.DoubleSide}
+          transparent={false}
         />
       ) : (
         <meshStandardMaterial 
@@ -54,12 +30,9 @@ const ShapeMesh = forwardRef<THREE.Mesh, ShapeMeshProps>(({
           roughness={0.5}
           metalness={0.5}
           side={THREE.DoubleSide}
+          transparent={false}
         />
       )}
-    </mesh>
+    </>
   );
-});
-
-ShapeMesh.displayName = 'ShapeMesh';
-
-export { ShapeMesh };
+}

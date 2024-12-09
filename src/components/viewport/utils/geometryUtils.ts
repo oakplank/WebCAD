@@ -7,12 +7,15 @@ export function createGeometry(type: GeometryType): THREE.BufferGeometry {
       return new THREE.BoxGeometry();
     case 'sphere': 
       return new THREE.SphereGeometry(1, 32, 32);
-    case 'cylinder': 
-      // Create cylinder standing upright (Y-axis)
-      return new THREE.CylinderGeometry(1, 1, 2, 32);
+    case 'cylinder': {
+      const geometry = new THREE.CylinderGeometry(1, 1, 2, 32);
+      geometry.rotateX(Math.PI / 2);
+      return geometry;
+    }
+    case 'merged':
     case 'group':
     case 'imported':
-      return new THREE.BoxGeometry(); // Fallback for types that don't need geometry
+      return new THREE.BufferGeometry();
     default: 
       return new THREE.BoxGeometry();
   }
