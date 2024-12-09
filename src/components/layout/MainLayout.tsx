@@ -1,18 +1,23 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import styled from '@emotion/styled';
 import { useSceneStore } from '../../store/sceneStore';
+import { useSettingsStore } from '../../store/settingsStore';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ModelStructureContent } from '../model-structure/ModelStructureContent';
 import { PropertyPanel } from '../sidebar/PropertyPanel';
 import { Toolbar } from '../toolbar/Toolbar';
 import { FileMenu } from '../menus/FileMenu';
+import { SettingsMenu } from '../menus/SettingsMenu';
 
-const Layout = styled.div`
+const Layout = styled.div<{ $theme: 'light' | 'dark' }>`
   width: 100vw;
   height: 100vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: ${props => props.$theme === 'dark' ? '#1e1e1e' : '#ffffff'};
+  color: ${props => props.$theme === 'dark' ? '#ffffff' : '#000000'};
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 `;
 
 const TopBar = styled.div`
@@ -23,16 +28,26 @@ const TopBar = styled.div`
   padding: 0 16px;
   color: white;
   z-index: 20;
+  justify-content: space-between;
+`;
+
+const LeftSection = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 32px;
 `;
 
 const Logo = styled.h1`
-  margin-right: 32px;
   font-size: 14px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.5px;
 `;
 
 const MenuBar = styled.div`
   display: flex;
   gap: 8px;
+  font-family: 'Inter', sans-serif;
 `;
 
 const MainContent = styled.div`
@@ -42,10 +57,10 @@ const MainContent = styled.div`
   overflow: hidden;
 `;
 
-const ModelStructure = styled(motion.div)`
+const ModelStructure = styled(motion.div)<{ $theme: 'light' | 'dark' }>`
   width: 300px;
   min-width: 300px;
-  background: white;
+  background: ${props => props.$theme === 'dark' ? '#2d2d2d' : '#ffffff'};
   box-shadow: 2px 0 5px rgba(0,0,0,0.1);
   z-index: 10;
   overflow-x: hidden;
@@ -59,10 +74,10 @@ const ViewportContainer = styled.div<{ $isPropertiesPanelOpen: boolean }>`
   margin-right: ${props => props.$isPropertiesPanelOpen ? '300px' : '0'};
 `;
 
-const PropertiesPanel = styled(motion.div)`
+const PropertiesPanel = styled(motion.div)<{ $theme: 'light' | 'dark' }>`
   width: 300px;
   min-width: 300px;
-  background: white;
+  background: ${props => props.$theme === 'dark' ? '#2d2d2d' : '#ffffff'};
   box-shadow: -2px 0 5px rgba(0,0,0,0.1);
   z-index: 10;
   overflow-y: auto;
@@ -72,29 +87,24 @@ const PropertiesPanel = styled(motion.div)`
   bottom: 0;
 `;
 
-export function MainLayout({ children }: { children: React.ReactNode }) {
+interface MainLayoutProps {
+  children: React.ReactNode;
+}
+
+export function MainLayout({ children }: MainLayoutProps) {
   const selectedObjectIds = useSceneStore(state => state.selectedObjectIds);
-  const setSelectedObjects = useSceneStore(state => state.setSelectedObjects);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setSelectedObjects([]);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setSelectedObjects]);
+  const theme = useSettingsStore(state => state.theme);
 
   return (
-    <Layout>
+    <Layout $theme={theme}>
       <TopBar>
-        <Logo>WebCAD</Logo>
-        <MenuBar>
-          <FileMenu />
-          {/* Add more menus here later */}
-        </MenuBar>
+        <LeftSection>
+          <Logo>WebCAD</Logo>
+          <MenuBar>
+            <FileMenu />
+          </MenuBar>
+        </LeftSection>
+        <SettingsMenu />
       </TopBar>
       <Toolbar />
       <MainContent>
@@ -103,6 +113,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           animate={{ x: 0 }}
           exit={{ x: -300 }}
           transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          $theme={theme}
         >
           <ModelStructureContent />
         </ModelStructure>
@@ -118,6 +129,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
               animate={{ x: 0 }}
               exit={{ x: 300 }}
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              $theme={theme}
             >
               <PropertyPanel />
             </PropertiesPanel>
@@ -126,4 +138,4 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       </MainContent>
     </Layout>
   );
-} 
+}

@@ -1,15 +1,16 @@
 import React, { useEffect } from 'react';
 import styled from '@emotion/styled';
 import { useSceneStore } from '../../store/sceneStore';
+import { useSettingsStore } from '../../store/settingsStore';
 import { FaCube, FaCircle, FaBorderAll, FaSquare, FaUndo, FaRedo } from 'react-icons/fa';
 import { BiCylinder } from 'react-icons/bi';
 import { MdOutlineViewInAr } from 'react-icons/md';
 import { ViewMode } from '../../types/scene.types';
 
-const ToolbarContainer = styled.div`
+const ToolbarContainer = styled.div<{ $theme: 'light' | 'dark' }>`
   width: 100%;
   height: 90px;
-  background: white;
+  background: ${props => props.$theme === 'dark' ? '#2d2d2d' : '#ffffff'};
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   display: flex;
   padding: 8px;
@@ -17,18 +18,18 @@ const ToolbarContainer = styled.div`
   z-index: 15;
 `;
 
-const ToolSection = styled.div`
+const ToolSection = styled.div<{ $theme: 'light' | 'dark' }>`
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 200px;
   padding: 0 16px;
-  border-right: 1px solid #eee;
+  border-right: 1px solid ${props => props.$theme === 'dark' ? '#404040' : '#eee'};
 `;
 
-const SectionTitle = styled.div`
+const SectionTitle = styled.div<{ $theme: 'light' | 'dark' }>`
   font-size: 12px;
-  color: #666;
+  color: ${props => props.$theme === 'dark' ? '#b0b0b0' : '#666'};
   text-transform: uppercase;
   margin-bottom: 4px;
 `;
@@ -38,7 +39,7 @@ const ButtonGroup = styled.div`
   gap: 4px;
 `;
 
-const ToolButton = styled.button`
+const ToolButton = styled.button<{ $theme: 'light' | 'dark' }>`
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -50,13 +51,15 @@ const ToolButton = styled.button`
   cursor: pointer;
   gap: 4px;
   min-width: 60px;
+  color: ${props => props.$theme === 'dark' ? '#ffffff' : '#000000'};
 
   &:hover {
-    background: #f0f0f0;
+    background: ${props => props.$theme === 'dark' ? '#3d3d3d' : '#f0f0f0'};
   }
 
   svg {
     font-size: 20px;
+    color: ${props => props.$theme === 'dark' ? '#ffffff' : '#000000'};
   }
 
   span {
@@ -65,9 +68,9 @@ const ToolButton = styled.button`
 `;
 
 const ViewButton = styled(ToolButton)<{ $active: boolean }>`
-  background: ${props => props.$active ? '#e3f2fd' : 'transparent'};
+  background: ${props => props.$active ? (props.$theme === 'dark' ? '#0d47a1' : '#e3f2fd') : 'transparent'};
   &:hover {
-    background: ${props => props.$active ? '#e3f2fd' : '#f0f0f0'};
+    background: ${props => props.$active ? (props.$theme === 'dark' ? '#0d47a1' : '#e3f2fd') : (props.$theme === 'dark' ? '#3d3d3d' : '#f0f0f0')};
   }
 `;
 
@@ -84,6 +87,7 @@ export function Toolbar() {
   const redo = useSceneStore(state => state.redo);
   const canUndo = useSceneStore(state => state.canUndo());
   const canRedo = useSceneStore(state => state.canRedo());
+  const theme = useSettingsStore(state => state.theme);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -118,38 +122,32 @@ export function Toolbar() {
   };
 
   return (
-    <ToolbarContainer>
-      <ToolSection>
-        <SectionTitle>Solid</SectionTitle>
+    <ToolbarContainer $theme={theme}>
+      <ToolSection $theme={theme}>
+        <SectionTitle $theme={theme}>Solid</SectionTitle>
         <ButtonGroup>
-          <ToolButton onClick={() => createObject('cube')}>
+          <ToolButton onClick={() => createObject('cube')} $theme={theme}>
             <FaCube />
             <span>Cube</span>
           </ToolButton>
-          <ToolButton onClick={() => createObject('sphere')}>
+          <ToolButton onClick={() => createObject('sphere')} $theme={theme}>
             <FaCircle />
             <span>Sphere</span>
           </ToolButton>
-          <ToolButton onClick={() => createObject('cylinder')}>
+          <ToolButton onClick={() => createObject('cylinder')} $theme={theme}>
             <BiCylinder />
             <span>Cylinder</span>
           </ToolButton>
         </ButtonGroup>
       </ToolSection>
 
-      <ToolSection>
-        <SectionTitle>Modify</SectionTitle>
-        <ButtonGroup>
-          {/* We'll add modification tools here later */}
-        </ButtonGroup>
-      </ToolSection>
-
-      <ToolSection>
-        <SectionTitle>View</SectionTitle>
+      <ToolSection $theme={theme}>
+        <SectionTitle $theme={theme}>View</SectionTitle>
         <ButtonGroup>
           <ViewButton 
             onClick={() => setViewMode('shaded')}
             $active={viewMode === 'shaded'}
+            $theme={theme}
           >
             <MdOutlineViewInAr />
             <span>Shaded</span>
@@ -157,6 +155,7 @@ export function Toolbar() {
           <ViewButton 
             onClick={() => setViewMode('wireframe')}
             $active={viewMode === 'wireframe'}
+            $theme={theme}
           >
             <FaBorderAll />
             <span>Wireframe</span>
@@ -164,6 +163,7 @@ export function Toolbar() {
           <ViewButton 
             onClick={() => setViewMode('surface')}
             $active={viewMode === 'surface'}
+            $theme={theme}
           >
             <FaSquare />
             <span>Surface</span>
@@ -171,12 +171,13 @@ export function Toolbar() {
         </ButtonGroup>
       </ToolSection>
 
-      <ToolSection>
-        <SectionTitle>Edit</SectionTitle>
+      <ToolSection $theme={theme}>
+        <SectionTitle $theme={theme}>Edit</SectionTitle>
         <ButtonGroup>
           <UndoRedoButton 
             onClick={() => canUndo && undo()}
             $disabled={!canUndo}
+            $theme={theme}
             title="Undo (Ctrl+Z)"
           >
             <FaUndo />
@@ -185,6 +186,7 @@ export function Toolbar() {
           <UndoRedoButton 
             onClick={() => canRedo && redo()}
             $disabled={!canRedo}
+            $theme={theme}
             title="Redo (Ctrl+Y)"
           >
             <FaRedo />
@@ -194,4 +196,4 @@ export function Toolbar() {
       </ToolSection>
     </ToolbarContainer>
   );
-} 
+}

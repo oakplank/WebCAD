@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { SceneState, SceneObject, ViewMode, HistoryState } from '../types/scene.types';
 
-const MAX_HISTORY = 5;
+const MAX_HISTORY = 50;
 
 const addToHistory = (state: HistoryState, history: HistoryState[], currentIndex: number) => {
   const newHistory = history.slice(0, currentIndex + 1);
@@ -12,14 +12,40 @@ const addToHistory = (state: HistoryState, history: HistoryState[], currentIndex
   return newHistory;
 };
 
+const updateChildrenVisibility = (objects: SceneObject[], parentId: string, visible: boolean): SceneObject[] => {
+  return objects.map(obj => {
+    if (obj.parentId === parentId) {
+      const updatedObj = { ...obj, visible };
+      // Recursively update children if this is also a group
+      if (obj.type === 'group' && obj.children.length > 0) {
+        return updateChildrenVisibility(objects, obj.id, visible)[objects.findIndex(o => o.id === obj.id)];
+      }
+      return updatedObj;
+    }
+    return obj;
+  });
+};
+
 export const useSceneStore = create<SceneState>((set, get) => ({
   objects: [],
   selectedObjectIds: [],
-  viewMode: 'shaded',
+  viewMode: 'shaded' as ViewMode,
   history: [{ objects: [], selectedObjectIds: [] }],
   currentHistoryIndex: 0,
   hoveredObjectId: null,
   setHoveredObject: (id) => set({ hoveredObjectId: id }),
+  
+  saveState: () => set(state => {
+    const newState = { 
+      objects: state.objects, 
+      selectedObjectIds: state.selectedObjectIds 
+    };
+    const newHistory = addToHistory(newState, state.history, state.currentHistoryIndex);
+    return {
+      history: newHistory,
+      currentHistoryIndex: newHistory.length - 1
+    };
+  }),
   
   addObject: (object) => set((state) => {
     const newObjects = [...state.objects, { 
@@ -40,8 +66,21 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   }),
   
   removeObject: (id) => set((state) => {
-    const newObjects = state.objects.filter(obj => obj.id !== id);
-    const newSelectedIds = state.selectedObjectIds.filter(selectedId => selectedId !== id);
+    // First, remove all children recursively
+    const getAllChildrenIds = (parentId: string): string[] => {
+      const children = state.objects.filter(obj => obj.parentId === parentId);
+      return children.reduce((acc, child) => [
+        ...acc,
+        child.id,
+        ...getAllChildrenIds(child.id)
+      ], [] as string[]);
+    };
+
+    const childrenIds = getAllChildrenIds(id);
+    const idsToRemove = [id, ...childrenIds];
+
+    const newObjects = state.objects.filter(obj => !idsToRemove.includes(obj.id));
+    const newSelectedIds = state.selectedObjectIds.filter(selectedId => !idsToRemove.includes(selectedId));
     
     const newState = { 
       objects: newObjects, 
@@ -56,11 +95,26 @@ export const useSceneStore = create<SceneState>((set, get) => ({
     };
   }),
   
-  updateObject: (id, updates) => set((state) => {
-    const newObjects = state.objects.map(obj => 
-      obj.id === id ? { ...obj, ...updates } : obj
-    );
+  updateObject: (id, updates, saveToHistory = true) => set((state) => {
+    let newObjects = [...state.objects];
+    const objectIndex = newObjects.findIndex(obj => obj.id === id);
+    
+    if (objectIndex === -1) return state;
+
+    // If updating visibility of a group, update all children recursively
+    if ('visible' in updates && newObjects[objectIndex].type === 'group') {
+      newObjects = updateChildrenVisibility(newObjects, id, updates.visible as boolean);
+    }
+
+    // Update the object itself
+    newObjects[objectIndex] = { ...newObjects[objectIndex], ...updates };
+
     const newState = { objects: newObjects, selectedObjectIds: state.selectedObjectIds };
+    
+    if (!saveToHistory) {
+      return { objects: newObjects };
+    }
+    
     const newHistory = addToHistory(newState, state.history, state.currentHistoryIndex);
     return {
       ...newState,
@@ -69,7 +123,8 @@ export const useSceneStore = create<SceneState>((set, get) => ({
     };
   }),
   
-  setSelectedObjects: (ids) => set({ selectedObjectIds: ids }),
+  setSelectedObjects: (ids) => set({ selectedObjectIds: Array.isArray(ids) ? ids : [] }),
+  setViewMode: (mode: ViewMode) => set({ viewMode: mode }),
 
   duplicateObject: (id) => set((state) => {
     const objectToDuplicate = state.objects.find(obj => obj.id === id);
@@ -83,7 +138,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
     };
 
     const newObjects = [...state.objects, newObject];
-    const newState = { objects: newObjects, selectedObjectIds: state.selectedObjectIds };
+    const newState = { objects: newObjects, selectedObjectIds: [newObject.id] };
     const newHistory = addToHistory(newState, state.history, state.currentHistoryIndex);
     return {
       ...newState,
@@ -91,8 +146,6 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       currentHistoryIndex: newHistory.length - 1
     };
   }),
-
-  setViewMode: (mode: ViewMode) => set({ viewMode: mode }),
 
   undo: () => set((state) => {
     if (state.currentHistoryIndex > 0) {
@@ -249,47 +302,5 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       history: newHistory,
       currentHistoryIndex: newHistory.length - 1
     };
-  }),
-
-  getWorldTransform: (objectId: string) => {
-    const state = get();
-    const object = state.objects.find(obj => obj.id === objectId);
-    if (!object) return null;
-
-    let worldPosition = [...object.position];
-    let worldRotation = [...object.rotation];
-    let worldScale = [...object.scale];
-
-    let currentObj = object;
-    while (currentObj.parentId) {
-      const parent = state.objects.find(obj => obj.id === currentObj.parentId);
-      if (!parent) break;
-
-      worldPosition = [
-        worldPosition[0] * parent.scale[0] + parent.position[0],
-        worldPosition[1] * parent.scale[1] + parent.position[1],
-        worldPosition[2] * parent.scale[2] + parent.position[2]
-      ];
-
-      worldRotation = [
-        worldRotation[0] + parent.rotation[0],
-        worldRotation[1] + parent.rotation[1],
-        worldRotation[2] + parent.rotation[2]
-      ];
-
-      worldScale = [
-        worldScale[0] * parent.scale[0],
-        worldScale[1] * parent.scale[1],
-        worldScale[2] * parent.scale[2]
-      ];
-
-      currentObj = parent;
-    }
-
-    return {
-      position: worldPosition as [number, number, number],
-      rotation: worldRotation as [number, number, number],
-      scale: worldScale as [number, number, number]
-    };
-  }
-})); 
+  })
+}));

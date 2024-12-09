@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styled from '@emotion/styled';
 import { useSceneStore } from '../../store/sceneStore';
+import { useSettingsStore } from '../../store/settingsStore';
 import { FileService } from '../../services/fileService';
 import { FileUploadDialog } from '../dialogs/FileUploadDialog';
 
@@ -9,7 +10,7 @@ const MenuContainer = styled.div`
   display: inline-block;
 `;
 
-const MenuButton = styled.button`
+const MenuButton = styled.button<{ $theme: 'light' | 'dark' }>`
   background: none;
   border: none;
   color: white;
@@ -21,11 +22,11 @@ const MenuButton = styled.button`
   }
 `;
 
-const Dropdown = styled.div<{ $isOpen: boolean }>`
+const Dropdown = styled.div<{ $isOpen: boolean; $theme: 'light' | 'dark' }>`
   position: absolute;
   top: 100%;
   left: 0;
-  background: white;
+  background: ${props => props.$theme === 'dark' ? '#2d2d2d' : '#ffffff'};
   border-radius: 4px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
   display: ${props => props.$isOpen ? 'block' : 'none'};
@@ -33,20 +34,21 @@ const Dropdown = styled.div<{ $isOpen: boolean }>`
   min-width: 160px;
 `;
 
-const MenuItem = styled.div`
+const MenuItem = styled.div<{ $theme: 'light' | 'dark' }>`
   padding: 8px 16px;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 8px;
+  color: ${props => props.$theme === 'dark' ? '#ffffff' : '#000000'};
   &:hover {
-    background: #f0f0f0;
+    background: ${props => props.$theme === 'dark' ? '#3d3d3d' : '#f0f0f0'};
   }
   font-size: 14px;
 `;
 
-const Shortcut = styled.span`
-  color: #666;
+const Shortcut = styled.span<{ $theme: 'light' | 'dark' }>`
+  color: ${props => props.$theme === 'dark' ? '#b0b0b0' : '#666666'};
   font-size: 12px;
   margin-left: auto;
 `;
@@ -56,7 +58,8 @@ export function FileMenu() {
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const objects = useSceneStore(state => state.objects);
   const setObjects = useSceneStore(state => state.setObjects);
-  const setSelectedObject = useSceneStore(state => state.setSelectedObject);
+  const setSelectedObject = useSceneStore(state => state.setSelectedObjects);
+  const theme = useSettingsStore(state => state.theme);
 
   const handleSave = async () => {
     try {
@@ -82,8 +85,7 @@ export function FileMenu() {
   const handleFileSelect = async (file: File) => {
     try {
       const result = await FileService.importFromGLB(file);
-      // Clear current scene and set new objects
-      setSelectedObject(null);
+      setSelectedObject([]);
       setObjects(result.objects);
       setShowUploadDialog(false);
     } catch (error) {
@@ -95,19 +97,22 @@ export function FileMenu() {
   return (
     <>
       <MenuContainer onMouseLeave={() => setIsOpen(false)}>
-        <MenuButton onMouseEnter={() => setIsOpen(true)}>
+        <MenuButton 
+          onMouseEnter={() => setIsOpen(true)}
+          $theme={theme}
+        >
           File
         </MenuButton>
-        <Dropdown $isOpen={isOpen}>
-          <MenuItem onClick={() => setShowUploadDialog(true)}>
+        <Dropdown $isOpen={isOpen} $theme={theme}>
+          <MenuItem $theme={theme} onClick={() => setShowUploadDialog(true)}>
             Open
-            <Shortcut>Ctrl+O</Shortcut>
+            <Shortcut $theme={theme}>Ctrl+O</Shortcut>
           </MenuItem>
-          <MenuItem onClick={handleSave}>
+          <MenuItem $theme={theme} onClick={handleSave}>
             Save
-            <Shortcut>Ctrl+S</Shortcut>
+            <Shortcut $theme={theme}>Ctrl+S</Shortcut>
           </MenuItem>
-          <MenuItem>
+          <MenuItem $theme={theme}>
             Export
           </MenuItem>
         </Dropdown>
@@ -121,4 +126,4 @@ export function FileMenu() {
       )}
     </>
   );
-} 
+}

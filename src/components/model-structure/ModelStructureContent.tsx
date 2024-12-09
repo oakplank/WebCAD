@@ -1,17 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import styled from '@emotion/styled';
 import { useSceneStore } from '../../store/sceneStore';
-import { FaEye, FaEyeSlash, FaChevronRight, FaChevronDown, FaObjectGroup, FaObjectUngroup } from 'react-icons/fa';
+import { useSettingsStore } from '../../store/settingsStore';
+import { FaEye, FaEyeSlash, FaChevronRight, FaChevronDown, FaCopy, FaTrash, FaPen } from 'react-icons/fa';
+import { SceneObject } from '../../types/scene.types';
 
-const Container = styled.div`
+const Container = styled.div<{ $theme: 'light' | 'dark' }>`
   padding: 16px;
+  background: ${props => props.$theme === 'dark' ? '#2d2d2d' : '#ffffff'};
+  color: ${props => props.$theme === 'dark' ? '#ffffff' : '#000000'};
 `;
 
-const Header = styled.div`
+const Header = styled.div<{ $theme: 'light' | 'dark' }>`
   font-weight: 600;
   padding-bottom: 16px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid ${props => props.$theme === 'dark' ? '#404040' : '#eee'};
   margin-bottom: 16px;
+  color: ${props => props.$theme === 'dark' ? '#ffffff' : '#000000'};
 `;
 
 const ItemList = styled.div`
@@ -20,271 +25,298 @@ const ItemList = styled.div`
   gap: 2px;
 `;
 
-const Item = styled.div<{ isSelected: boolean; depth?: number }>`
+const Item = styled.div<{ isSelected: boolean; depth?: number; $theme: 'light' | 'dark' }>`
   display: flex;
   align-items: center;
   padding: 8px;
   padding-left: ${props => (props.depth || 0) * 20 + 8}px;
   border-radius: 4px;
-  background: ${props => props.isSelected ? '#e3f2fd' : 'transparent'};
+  background: ${props => props.isSelected 
+    ? props.$theme === 'dark' ? '#0d47a1' : '#e3f2fd'
+    : 'transparent'};
   cursor: pointer;
   user-select: none;
+  color: ${props => props.$theme === 'dark' ? '#ffffff' : '#000000'};
   &:hover {
-    background: ${props => props.isSelected ? '#e3f2fd' : '#f5f5f5'};
+    background: ${props => props.isSelected 
+      ? props.$theme === 'dark' ? '#0d47a1' : '#e3f2fd'
+      : props.$theme === 'dark' ? '#3d3d3d' : '#f5f5f5'};
   }
 `;
 
-const ExpandButton = styled.button`
+const IconButton = styled.button<{ $theme: 'light' | 'dark' }>`
   background: none;
   border: none;
-  cursor: pointer;
   padding: 4px;
-  color: #666;
+  cursor: pointer;
+  color: ${props => props.$theme === 'dark' ? '#b0b0b0' : '#666666'};
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
   &:hover {
-    color: #000;
+    color: ${props => props.$theme === 'dark' ? '#ffffff' : '#000000'};
   }
 `;
 
-const VisibilityButton = styled.button`
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px;
-  color: #666;
-  &:hover {
-    color: #000;
-  }
-`;
-
-const ItemName = styled.span`
-  flex: 1;
-  margin-left: 8px;
-`;
-
-const ContextMenu = styled.div<{ x: number; y: number }>`
+const ContextMenu = styled.div<{ $theme: 'light' | 'dark' }>`
   position: fixed;
-  left: ${props => props.x}px;
-  top: ${props => props.y}px;
-  background: white;
+  background: ${props => props.$theme === 'dark' ? '#2d2d2d' : '#ffffff'};
   border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   z-index: 1000;
+  min-width: 160px;
 `;
 
-const MenuItem = styled.div`
+const MenuItem = styled.div<{ $theme: 'light' | 'dark'; $danger?: boolean }>`
   padding: 8px 16px;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 8px;
+  color: ${props => props.$danger ? '#ff4444' : 'inherit'};
   &:hover {
-    background: #f0f0f0;
+    background: ${props => props.$theme === 'dark' ? '#3d3d3d' : '#f5f5f5'};
   }
 `;
 
-interface ContextMenuState {
-  visible: boolean;
-  x: number;
-  y: number;
-  objectId: string | null;
-}
+const Divider = styled.div<{ $theme: 'light' | 'dark' }>`
+  height: 1px;
+  background: ${props => props.$theme === 'dark' ? '#404040' : '#eee'};
+  margin: 4px 0;
+`;
+
+const RenameInput = styled.input<{ $theme: 'light' | 'dark' }>`
+  background: ${props => props.$theme === 'dark' ? '#1e1e1e' : '#ffffff'};
+  border: 1px solid ${props => props.$theme === 'dark' ? '#404040' : '#ddd'};
+  color: ${props => props.$theme === 'dark' ? '#ffffff' : '#000000'};
+  padding: 4px 8px;
+  border-radius: 4px;
+  width: calc(100% - 16px);
+  margin: 4px 8px;
+  &:focus {
+    outline: none;
+    border-color: #2196f3;
+  }
+`;
 
 export function ModelStructureContent() {
-  const [contextMenu, setContextMenu] = useState<ContextMenuState>({
-    visible: false,
-    x: 0,
-    y: 0,
-    objectId: null
-  });
+  const objects = useSceneStore(state => state.objects);
+  const selectedObjectIds = useSceneStore(state => state.selectedObjectIds);
+  const setSelectedObjects = useSceneStore(state => state.setSelectedObjects);
+  const updateObject = useSceneStore(state => state.updateObject);
+  const removeObject = useSceneStore(state => state.removeObject);
+  const duplicateObject = useSceneStore(state => state.duplicateObject);
+  const groupObjects = useSceneStore(state => state.groupObjects);
+  const ungroupObjects = useSceneStore(state => state.ungroupObjects);
+  const theme = useSettingsStore(state => state.theme);
+
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-  const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    objectId: string;
+  } | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
 
-  const { 
-    objects, 
-    selectedObjectIds = [],
-    setSelectedObjects,
-    updateObject, 
-    removeObject, 
-    duplicateObject,
-    groupObjects,
-    ungroupObjects
-  } = useSceneStore();
-
-  // Add click-away handler
-  useEffect(() => {
-    const handleClickAway = () => {
-      if (contextMenu.visible) {
-        setContextMenu(prev => ({ ...prev, visible: false }));
-      }
-    };
-
-    document.addEventListener('click', handleClickAway);
-    return () => document.removeEventListener('click', handleClickAway);
-  }, [contextMenu.visible]);
-
-  const handleClick = (e: React.MouseEvent, objectId: string) => {
-    if (e.ctrlKey) {
-      // Ctrl+click: Toggle selection
-      const newSelection = selectedObjectIds.includes(objectId)
-        ? selectedObjectIds.filter(id => id !== objectId)
-        : [...selectedObjectIds, objectId];
-      setSelectedObjects(newSelection);
-      setLastSelectedId(objectId);
-    } else if (e.shiftKey && lastSelectedId) {
-      // Shift+click: Select range
-      const allIds = objects.map(obj => obj.id);
-      const startIdx = allIds.indexOf(lastSelectedId);
-      const endIdx = allIds.indexOf(objectId);
-      const range = allIds.slice(
-        Math.min(startIdx, endIdx),
-        Math.max(startIdx, endIdx) + 1
-      );
-      setSelectedObjects(range);
+  const toggleExpanded = useCallback((e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    const newExpanded = new Set(expandedGroups);
+    if (newExpanded.has(id)) {
+      newExpanded.delete(id);
     } else {
-      // Normal click: Single select
-      setSelectedObjects([objectId]);
-      setLastSelectedId(objectId);
+      newExpanded.add(id);
     }
-  };
+    setExpandedGroups(newExpanded);
+  }, [expandedGroups]);
 
-  const handleContextMenu = (e: React.MouseEvent, objectId: string) => {
+  const toggleVisibility = useCallback((e: React.MouseEvent, object: SceneObject) => {
+    e.stopPropagation();
+    updateObject(object.id, { visible: !object.visible });
+  }, [updateObject]);
+
+  const handleSelect = useCallback((e: React.MouseEvent, object: SceneObject) => {
+    if (e.ctrlKey || e.metaKey) {
+      if (selectedObjectIds.includes(object.id)) {
+        setSelectedObjects(selectedObjectIds.filter(id => id !== object.id));
+      } else {
+        setSelectedObjects([...selectedObjectIds, object.id]);
+      }
+    } else {
+      setSelectedObjects([object.id]);
+    }
+  }, [selectedObjectIds, setSelectedObjects]);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, object: SceneObject) => {
     e.preventDefault();
-    e.stopPropagation(); // Stop propagation to prevent immediate click-away
-    if (!selectedObjectIds.includes(objectId)) {
-      setSelectedObjects([objectId]);
+    e.stopPropagation();
+    if (!selectedObjectIds.includes(object.id)) {
+      setSelectedObjects([object.id]);
     }
     setContextMenu({
-      visible: true,
       x: e.clientX,
       y: e.clientY,
-      objectId
+      objectId: object.id
     });
-  };
+  }, [selectedObjectIds, setSelectedObjects]);
 
-  const toggleExpanded = (e: React.MouseEvent, groupId: string) => {
-    e.stopPropagation();
-    setExpandedGroups(prev => {
-      const next = new Set(prev);
-      if (next.has(groupId)) {
-        next.delete(groupId);
-      } else {
-        next.add(groupId);
+  const handleRename = useCallback((objectId: string) => {
+    setRenamingId(objectId);
+    setContextMenu(null);
+  }, []);
+
+  const handleRenameSubmit = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && renamingId) {
+      const newName = e.currentTarget.value.trim();
+      if (newName) {
+        updateObject(renamingId, { name: newName });
       }
-      return next;
-    });
-  };
-
-  const toggleVisibility = (e: React.MouseEvent, objectId: string) => {
-    e.stopPropagation();
-    const object = objects.find(obj => obj.id === objectId);
-    if (object) {
-      updateObject(objectId, { visible: !object.visible });
+      setRenamingId(null);
+    } else if (e.key === 'Escape') {
+      setRenamingId(null);
     }
-  };
+  }, [renamingId, updateObject]);
 
-  const renderContextMenu = () => {
-    if (!contextMenu.visible || !contextMenu.objectId) return null;
+  const handleDuplicate = useCallback(() => {
+    if (contextMenu) {
+      duplicateObject(contextMenu.objectId);
+      setContextMenu(null);
+    }
+  }, [contextMenu, duplicateObject]);
 
-    const object = objects.find(obj => obj.id === contextMenu.objectId);
-    if (!object) return null;
+  const handleDelete = useCallback(() => {
+    if (selectedObjectIds.length > 0) {
+      selectedObjectIds.forEach(id => removeObject(id));
+      setSelectedObjects([]);
+    }
+    setContextMenu(null);
+  }, [selectedObjectIds, removeObject, setSelectedObjects]);
 
-    return (
-      <ContextMenu x={contextMenu.x} y={contextMenu.y}>
-        {selectedObjectIds.length > 1 && object.type !== 'group' && (
-          <MenuItem onClick={() => {
-            groupObjects(selectedObjectIds);
-            setContextMenu(prev => ({ ...prev, visible: false }));
-          }}>
-            <FaObjectGroup />
-            Group
-          </MenuItem>
-        )}
-        {object.type === 'group' && (
-          <MenuItem onClick={() => {
-            ungroupObjects(object.id);
-            setContextMenu(prev => ({ ...prev, visible: false }));
-          }}>
-            <FaObjectUngroup />
-            Ungroup
-          </MenuItem>
-        )}
-        <MenuItem onClick={() => {
-          const newName = prompt('Enter new name:', object.name);
-          if (newName) {
-            updateObject(contextMenu.objectId!, { name: newName });
-          }
-          setContextMenu(prev => ({ ...prev, visible: false }));
-        }}>
-          Rename
-        </MenuItem>
-        <MenuItem onClick={() => {
-          duplicateObject(contextMenu.objectId!);
-          setContextMenu(prev => ({ ...prev, visible: false }));
-        }}>
-          Duplicate
-        </MenuItem>
-        <MenuItem onClick={() => {
-          removeObject(contextMenu.objectId!);
-          setContextMenu(prev => ({ ...prev, visible: false }));
-        }}>
-          Delete
-        </MenuItem>
-      </ContextMenu>
-    );
-  };
+  const handleGroupSelected = useCallback(() => {
+    if (selectedObjectIds.length > 1) {
+      groupObjects(selectedObjectIds);
+    }
+    setContextMenu(null);
+  }, [selectedObjectIds, groupObjects]);
 
-  const renderObject = (object: SceneObject, depth: number = 0) => {
-    const hasChildren = object.children.length > 0;
+  const handleUngroup = useCallback(() => {
+    if (contextMenu) {
+      ungroupObjects(contextMenu.objectId);
+      setContextMenu(null);
+    }
+  }, [contextMenu, ungroupObjects]);
+
+  React.useEffect(() => {
+    const handleClickOutside = () => {
+      setContextMenu(null);
+      setRenamingId(null);
+    };
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  const renderObject = useCallback((object: SceneObject, depth: number = 0) => {
+    const isSelected = selectedObjectIds.includes(object.id);
+    const hasChildren = object.type === 'group' && object.children.length > 0;
     const isExpanded = expandedGroups.has(object.id);
+    const isRenaming = renamingId === object.id;
 
     return (
       <React.Fragment key={object.id}>
         <Item
-          isSelected={selectedObjectIds?.includes(object.id) || false}
+          isSelected={isSelected}
           depth={depth}
-          onClick={(e) => handleClick(e, object.id)}
-          onContextMenu={(e) => handleContextMenu(e, object.id)}
+          onClick={(e) => handleSelect(e, object)}
+          onContextMenu={(e) => handleContextMenu(e, object)}
+          $theme={theme}
         >
-          {hasChildren ? (
-            <ExpandButton onClick={(e) => toggleExpanded(e, object.id)}>
-              {isExpanded ? <FaChevronDown /> : <FaChevronRight />}
-            </ExpandButton>
-          ) : (
-            <div style={{ width: '20px' }} /> // Spacer for alignment
+          {hasChildren && (
+            <IconButton 
+              onClick={(e) => toggleExpanded(e, object.id)} 
+              $theme={theme}
+            >
+              {isExpanded ? <FaChevronDown size={12} /> : <FaChevronRight size={12} />}
+            </IconButton>
           )}
-          <ItemName>{object.name}</ItemName>
-          <VisibilityButton onClick={(e) => toggleVisibility(e, object.id)}>
-            {object.visible ? <FaEye /> : <FaEyeSlash />}
-          </VisibilityButton>
+          <IconButton 
+            onClick={(e) => toggleVisibility(e, object)} 
+            $theme={theme}
+          >
+            {object.visible ? <FaEye size={12} /> : <FaEyeSlash size={12} />}
+          </IconButton>
+          {isRenaming ? (
+            <RenameInput
+              autoFocus
+              defaultValue={object.name}
+              onKeyDown={handleRenameSubmit}
+              onClick={(e) => e.stopPropagation()}
+              $theme={theme}
+            />
+          ) : (
+            object.name
+          )}
         </Item>
-        
-        {/* Render children if expanded */}
-        {hasChildren && isExpanded && (
-          <div>
-            {objects
-              .filter(child => child.parentId === object.id)
-              .map(child => renderObject(child, depth + 1))
-            }
-          </div>
-        )}
+        {hasChildren && isExpanded && object.children.map(childId => {
+          const child = objects.find(obj => obj.id === childId);
+          if (child) {
+            return renderObject(child, depth + 1);
+          }
+          return null;
+        })}
       </React.Fragment>
     );
-  };
+  }, [
+    selectedObjectIds,
+    expandedGroups,
+    renamingId,
+    theme,
+    handleSelect,
+    handleContextMenu,
+    toggleExpanded,
+    toggleVisibility,
+    handleRenameSubmit,
+    objects
+  ]);
 
-  // Get root level objects (those with no parent)
-  const rootObjects = objects.filter(obj => obj.parentId === null);
+  const rootObjects = objects.filter(obj => !obj.parentId);
 
   return (
-    <Container>
-      <Header>Model Structure</Header>
+    <Container $theme={theme}>
+      <Header $theme={theme}>Model Structure</Header>
       <ItemList>
         {rootObjects.map(object => renderObject(object))}
       </ItemList>
-      {renderContextMenu()}
+
+      {contextMenu && (
+        <ContextMenu
+          style={{
+            left: contextMenu.x,
+            top: contextMenu.y
+          }}
+          onClick={(e) => e.stopPropagation()}
+          $theme={theme}
+        >
+          <MenuItem onClick={() => handleRename(contextMenu.objectId)} $theme={theme}>
+            <FaPen size={12} /> Rename
+          </MenuItem>
+          <MenuItem onClick={handleDuplicate} $theme={theme}>
+            <FaCopy size={12} /> Duplicate
+          </MenuItem>
+          {selectedObjectIds.length > 1 && (
+            <MenuItem onClick={handleGroupSelected} $theme={theme}>
+              Group Selected
+            </MenuItem>
+          )}
+          {objects.find(obj => obj.id === contextMenu.objectId)?.type === 'group' && (
+            <MenuItem onClick={handleUngroup} $theme={theme}>
+              Ungroup
+            </MenuItem>
+          )}
+          <Divider $theme={theme} />
+          <MenuItem onClick={handleDelete} $theme={theme} $danger>
+            <FaTrash size={12} /> Delete
+          </MenuItem>
+        </ContextMenu>
+      )}
     </Container>
   );
-} 
+}

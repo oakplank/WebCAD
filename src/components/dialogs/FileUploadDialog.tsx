@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import styled from '@emotion/styled';
+import { useSettingsStore } from '../../store/settingsStore';
 import { FaUpload, FaTimes } from 'react-icons/fa';
 
 const Overlay = styled.div`
@@ -15,12 +16,13 @@ const Overlay = styled.div`
   z-index: 1000;
 `;
 
-const Dialog = styled.div`
-  background: white;
+const Dialog = styled.div<{ $theme: 'light' | 'dark' }>`
+  background: ${props => props.$theme === 'dark' ? '#2d2d2d' : '#ffffff'};
   border-radius: 8px;
   padding: 24px;
   width: 480px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  color: ${props => props.$theme === 'dark' ? '#ffffff' : '#000000'};
 `;
 
 const Header = styled.div`
@@ -30,29 +32,29 @@ const Header = styled.div`
   margin-bottom: 20px;
 `;
 
-const Title = styled.h2`
+const Title = styled.h2<{ $theme: 'light' | 'dark' }>`
   margin: 0;
   font-size: 18px;
-  color: #333;
+  color: ${props => props.$theme === 'dark' ? '#ffffff' : '#333333'};
 `;
 
-const CloseButton = styled.button`
+const CloseButton = styled.button<{ $theme: 'light' | 'dark' }>`
   background: none;
   border: none;
-  color: #666;
+  color: ${props => props.$theme === 'dark' ? '#b0b0b0' : '#666666'};
   cursor: pointer;
   padding: 4px;
   &:hover {
-    color: #000;
+    color: ${props => props.$theme === 'dark' ? '#ffffff' : '#000000'};
   }
 `;
 
-const DropZone = styled.div<{ isDragging: boolean }>`
-  border: 2px dashed ${props => props.isDragging ? '#7092BE' : '#ddd'};
+const DropZone = styled.div<{ isDragging: boolean; $theme: 'light' | 'dark' }>`
+  border: 2px dashed ${props => props.isDragging ? '#7092BE' : props.$theme === 'dark' ? '#404040' : '#ddd'};
   border-radius: 8px;
   padding: 40px;
   text-align: center;
-  background: ${props => props.isDragging ? 'rgba(112, 146, 190, 0.1)' : '#f9f9f9'};
+  background: ${props => props.isDragging ? 'rgba(112, 146, 190, 0.1)' : props.$theme === 'dark' ? '#1e1e1e' : '#f9f9f9'};
   cursor: pointer;
   transition: all 0.2s ease;
   margin-bottom: 16px;
@@ -71,31 +73,18 @@ const UploadIcon = styled.div`
   }
 `;
 
-const Text = styled.div`
-  color: #666;
+const Text = styled.div<{ $theme: 'light' | 'dark' }>`
+  color: ${props => props.$theme === 'dark' ? '#ffffff' : '#666666'};
   margin-bottom: 8px;
 `;
 
-const SubText = styled.div`
-  color: #999;
+const SubText = styled.div<{ $theme: 'light' | 'dark' }>`
+  color: ${props => props.$theme === 'dark' ? '#b0b0b0' : '#999999'};
   font-size: 14px;
 `;
 
 const Input = styled.input`
   display: none;
-`;
-
-const BrowseButton = styled.button`
-  background: #7092BE;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  &:hover {
-    background: #5a7ba7;
-  }
 `;
 
 interface Props {
@@ -106,6 +95,7 @@ interface Props {
 export function FileUploadDialog({ onClose, onFileSelect }: Props) {
   const [isDragging, setIsDragging] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const theme = useSettingsStore(state => state.theme);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -140,10 +130,10 @@ export function FileUploadDialog({ onClose, onFileSelect }: Props) {
 
   return (
     <Overlay onClick={onClose}>
-      <Dialog onClick={e => e.stopPropagation()}>
+      <Dialog onClick={e => e.stopPropagation()} $theme={theme}>
         <Header>
-          <Title>Open GLB File</Title>
-          <CloseButton onClick={onClose}>
+          <Title $theme={theme}>Open GLB File</Title>
+          <CloseButton onClick={onClose} $theme={theme}>
             <FaTimes />
           </CloseButton>
         </Header>
@@ -154,12 +144,13 @@ export function FileUploadDialog({ onClose, onFileSelect }: Props) {
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           onClick={() => inputRef.current?.click()}
+          $theme={theme}
         >
           <UploadIcon>
             <FaUpload />
           </UploadIcon>
-          <Text>Drag and drop your GLB file here</Text>
-          <SubText>or click to browse</SubText>
+          <Text $theme={theme}>Drag and drop your GLB file here</Text>
+          <SubText $theme={theme}>or click to browse</SubText>
         </DropZone>
 
         <Input
@@ -171,4 +162,4 @@ export function FileUploadDialog({ onClose, onFileSelect }: Props) {
       </Dialog>
     </Overlay>
   );
-} 
+}
