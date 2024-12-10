@@ -1,7 +1,7 @@
+import * as THREE from 'three';
 import { Theme } from '../store/settingsStore';
 
 export type ViewMode = 'shaded' | 'wireframe' | 'surface';
-
 export type GeometryType = 'cube' | 'sphere' | 'cylinder' | 'imported' | 'group' | 'merged';
 
 export interface MaterialData {

@@ -8,6 +8,11 @@ interface SceneData {
   relationships: Record<string, { parent: string | null; children: string[] }>;
 }
 
+interface GLTFResult {
+  scene: THREE.Scene;
+  animations: THREE.AnimationClip[];
+}
+
 export class FileService {
   static async exportToGLB(sceneData: SceneData): Promise<Blob> {
     const threeScene = new THREE.Scene();
@@ -44,7 +49,9 @@ export class FileService {
         { 
           binary: true,
           includeCustomExtensions: true,
-          embedImages: true
+          embedImages: true,
+          forceIndices: true, // Ensure indices are included
+          truncateDrawRange: false // Preserve full geometry
         }
       );
     });
@@ -55,53 +62,56 @@ export class FileService {
       const loader = new GLTFLoader();
       const url = URL.createObjectURL(file);
 
-      loader.load(url, async (gltf) => {
-        // Create root group for imported model
-        const rootId = crypto.randomUUID();
-        const objects: SceneObject[] = [{
-          id: rootId,
-          name: 'Imported Model',
-          type: 'group',
-          position: [0, 0, 0],
-          rotation: [0, 0, 0],
-          scale: [1, 1, 1],
-          color: '#cccccc',
-          visible: true,
-          parentId: null,
-          children: []
-        }];
+      loader.load(url, async (gltf: GLTFResult) => {
+        const objects: SceneObject[] = [];
         
-        // Center and normalize the model
+        // Get scene bounds for centering only (not scaling)
         const box = new THREE.Box3().setFromObject(gltf.scene);
         const center = box.getCenter(new THREE.Vector3());
-        const size = box.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const normalizeScale = 10 / maxDim;
 
         gltf.scene.traverse(async (child) => {
           if (child instanceof THREE.Mesh) {
-            // Get world position and scale only
+            // Get world transform
             child.updateMatrixWorld(true);
             const position = new THREE.Vector3();
+            const quaternion = new THREE.Quaternion();
             const scale = new THREE.Vector3();
-            child.matrixWorld.decompose(position, new THREE.Quaternion(), scale);
+            child.matrixWorld.decompose(position, quaternion, scale);
 
-            // Center and normalize position
+            // Extract Euler rotation from quaternion
+            const euler = new THREE.Euler().setFromQuaternion(quaternion);
+
+            // Extract material properties
+            let color = '#cccccc';
+            let metalness = 0.1;
+            let roughness = 0.8;
+
+            if (child.material instanceof THREE.Material) {
+              if ('color' in child.material && child.material.color instanceof THREE.Color) {
+                color = '#' + child.material.color.getHexString();
+              }
+              if ('metalness' in child.material && typeof child.material.metalness === 'number') {
+                metalness = child.material.metalness;
+              }
+              if ('roughness' in child.material && typeof child.material.roughness === 'number') {
+                roughness = child.material.roughness;
+              }
+            }
+
+            // Center position but preserve scale
             position.sub(center);
-            position.multiplyScalar(normalizeScale);
 
-            // Create object with no rotation
-            const objectId = crypto.randomUUID();
+            // Create object
             objects.push({
-              id: objectId,
-              name: child.name || `Part_${objects.length}`,
+              id: crypto.randomUUID(),
+              name: child.name || `Part_${objects.length + 1}`,
               type: 'imported',
               position: [position.x, position.y, position.z] as [number, number, number],
-              rotation: [0, 0, 0], // Reset all rotations
-              scale: [scale.x * normalizeScale, scale.y * normalizeScale, scale.z * normalizeScale] as [number, number, number],
-              color: '#cccccc',
+              rotation: [euler.x, euler.y, euler.z] as [number, number, number],
+              scale: [scale.x, scale.y, scale.z] as [number, number, number],
+              color: color,
               visible: true,
-              parentId: rootId,
+              parentId: null,
               children: [],
               geometry: {
                 vertices: Array.from(child.geometry.attributes.position.array),
@@ -110,24 +120,21 @@ export class FileService {
                 uvs: child.geometry.attributes.uv ? Array.from(child.geometry.attributes.uv.array) : []
               },
               material: {
-                color: '#cccccc',
-                metalness: 0.1,
-                roughness: 0.8
+                color: color,
+                metalness: metalness,
+                roughness: roughness
               }
             });
-
-            // Add to root's children
-            objects[0].children.push(objectId);
           }
         });
 
         URL.revokeObjectURL(url);
         resolve({ objects });
       }, 
-      (progress) => {
+      (progress: ProgressEvent) => {
         console.log('Loading progress:', (progress.loaded / progress.total * 100).toFixed(2) + '%');
       },
-      (error) => {
+      (error: Error) => {
         console.error('GLB loading error:', error);
         URL.revokeObjectURL(url);
         reject(error);
@@ -150,6 +157,7 @@ export class FileService {
       if (obj.geometry.uvs && obj.geometry.uvs.length > 0) {
         geometry.setAttribute('uv', new THREE.Float32BufferAttribute(obj.geometry.uvs, 2));
       }
+      geometry.computeBoundingSphere(); // Ensure proper bounds
     } else {
       switch (obj.type) {
         case 'cube':
@@ -166,10 +174,12 @@ export class FileService {
       }
     }
 
+    // Create material with object's color and properties
     const material = new THREE.MeshStandardMaterial({
-      color: obj.color,
+      color: new THREE.Color(obj.material?.color || obj.color),
       metalness: obj.material?.metalness ?? 0.1,
-      roughness: obj.material?.roughness ?? 0.2
+      roughness: obj.material?.roughness ?? 0.2,
+      side: THREE.DoubleSide
     });
 
     const mesh = new THREE.Mesh(geometry, material);

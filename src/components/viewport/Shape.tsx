@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import * as THREE from 'three';
 import { useSceneStore } from '../../store/sceneStore';
 import { SceneObject } from '../../types/scene.types';
 import { rotationToRadians } from '../../utils/rotationUtils';
@@ -49,6 +50,7 @@ export function Shape({ object }: ShapeProps) {
           type={object.type}
           color={object.color}
           viewMode={viewMode}
+          geometry={object.geometry}
         />
         <ShapeEdges
           type={object.type}
