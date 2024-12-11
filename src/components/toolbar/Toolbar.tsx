@@ -2,7 +2,8 @@ import React, { useEffect } from 'react';
 import styled from '@emotion/styled';
 import { useSceneStore } from '../../store/sceneStore';
 import { useSettingsStore } from '../../store/settingsStore';
-import { FaCube, FaCircle, FaBorderAll, FaSquare, FaUndo, FaRedo } from 'react-icons/fa';
+import { useModifyStore } from '../../store/modifyStore';
+import { FaCube, FaCircle, FaBorderAll, FaSquare, FaUndo, FaRedo, FaRuler, FaArrowsAltH } from 'react-icons/fa';
 import { BiCylinder } from 'react-icons/bi';
 import { MdOutlineViewInAr } from 'react-icons/md';
 import { ViewMode } from '../../types/scene.types';
@@ -88,6 +89,17 @@ export function Toolbar() {
   const canUndo = useSceneStore(state => state.canUndo());
   const canRedo = useSceneStore(state => state.canRedo());
   const theme = useSettingsStore(state => state.theme);
+  const mode = useModifyStore(state => state.mode);
+  const reset = useModifyStore(state => state.reset);
+
+  const handleModeChange = (newMode: 'measure' | 'align') => {
+    if (mode === newMode) {
+      reset();
+    } else {
+      useModifyStore.getState().setMode(newMode);
+      useModifyStore.getState().clearSelection();
+    }
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -137,6 +149,26 @@ export function Toolbar() {
           <ToolButton onClick={() => createObject('cylinder')} $theme={theme}>
             <BiCylinder />
             <span>Cylinder</span>
+          </ToolButton>
+        </ButtonGroup>
+      </ToolSection>
+
+      <ToolSection $theme={theme}>
+        <SectionTitle $theme={theme}>Modify</SectionTitle>
+        <ButtonGroup>
+          <ToolButton 
+            onClick={() => handleModeChange('measure')}
+            $theme={theme}
+          >
+            <FaRuler />
+            <span>Measure</span>
+          </ToolButton>
+          <ToolButton 
+            onClick={() => handleModeChange('align')}
+            $theme={theme}
+          >
+            <FaArrowsAltH />
+            <span>Align</span>
           </ToolButton>
         </ButtonGroup>
       </ToolSection>
