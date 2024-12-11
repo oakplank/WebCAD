@@ -1,36 +1,48 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid } from '@react-three/drei';
 import { useSceneStore } from '../../store/sceneStore';
 import { useSettingsStore } from '../../store/settingsStore';
+import { useModifyStore } from '../../store/modifyStore';
 import { Shape } from './Shape';
 import { GroupObject } from './GroupObject';
+import { ModifyOverlay } from './modifiers/ModifyOverlay';
+import { GlobalFaceSelector } from './modifiers/GlobalFaceSelector';
 
 export function Viewport() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isViewportFocused = useRef(false);
   const objects = useSceneStore(state => state.objects);
   const selectedObjectIds = useSceneStore(state => state.selectedObjectIds);
   const setSelectedObjects = useSceneStore(state => state.setSelectedObjects);
   const removeObject = useSceneStore(state => state.removeObject);
-  const hoveredObjectId = useSceneStore(state => state.hoveredObjectId);
   const { backgroundColor, showGrid, viewDistance } = useSettingsStore();
+  const { mode, reset } = useModifyStore();
 
   useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleFocus = () => {
+      isViewportFocused.current = true;
+    };
+
+    const handleBlur = () => {
+      isViewportFocused.current = false;
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Tab' && hoveredObjectId) {
-        e.preventDefault();
-        if (selectedObjectIds.length === 1) {
-          const selectedObject = objects.find(obj => obj.id === selectedObjectIds[0]);
-          if (selectedObject?.type === 'group') {
-            const hoveredObject = objects.find(obj => obj.id === hoveredObjectId);
-            if (hoveredObject?.parentId === selectedObject.id) {
-              setSelectedObjects([hoveredObject.id]);
-            }
-          }
-        }
-      }
+      if (!isViewportFocused.current) return;
 
       if (e.key === 'Escape') {
-        setSelectedObjects([]);
+        if (mode !== 'none') {
+          e.preventDefault();
+          reset();
+          return;
+        }
+        if (selectedObjectIds.length > 0) {
+          setSelectedObjects([]);
+        }
       }
 
       if (e.key === 'Delete' && selectedObjectIds.length > 0) {
@@ -39,12 +51,35 @@ export function Viewport() {
       }
     };
 
+    // Focus the container by default
+    container.focus();
+
+    // Handle clicks outside the viewport
+    const handleClickOutside = (e: MouseEvent) => {
+      if (!container.contains(e.target as Node)) {
+        if (mode === 'none') {
+          setSelectedObjects([]);
+        }
+      } else {
+        container.focus();
+      }
+    };
+
+    container.addEventListener('focus', handleFocus);
+    container.addEventListener('blur', handleBlur);
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedObjectIds, objects, hoveredObjectId, setSelectedObjects, removeObject]);
+    window.addEventListener('click', handleClickOutside);
+
+    return () => {
+      container.removeEventListener('focus', handleFocus);
+      container.removeEventListener('blur', handleBlur);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('click', handleClickOutside);
+    };
+  }, [selectedObjectIds, setSelectedObjects, removeObject, mode, reset]);
 
   const handleCanvasClick = (e: any) => {
-    if (!e.object) {
+    if (!e.object && mode === 'none') {
       setSelectedObjects([]);
     }
   };
@@ -53,7 +88,13 @@ export function Viewport() {
   const rootObjects = objects.filter(obj => !obj.parentId);
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div 
+      ref={containerRef}
+      style={{ position: 'relative', width: '100%', height: '100%' }}
+      tabIndex={0} // Make the container focusable
+    >
+      <ModifyOverlay />
+      
       <Canvas
         camera={{ 
           position: [15, 15, 15],
@@ -99,6 +140,8 @@ export function Viewport() {
             <Shape key={object.id} object={object} />
           )
         ))}
+
+        {mode !== 'none' && <GlobalFaceSelector />}
       </Canvas>
     </div>
   );

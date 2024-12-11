@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { useSceneStore } from '../../../store/sceneStore';
 import { ThreeEvent } from '@react-three/fiber';
 
-export function useShapeInteraction(objectId: string) {
+export function useShapeInteraction(objectId: string, disableSelection: boolean = false) {
   const [isHovered, setIsHovered] = useState(false);
   const setSelectedObjects = useSceneStore(state => state.setSelectedObjects);
   const selectedObjectIds = useSceneStore(state => state.selectedObjectIds);
   const setHoveredObject = useSceneStore(state => state.setHoveredObject);
 
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
+    if (disableSelection) return;
+    
     e.stopPropagation();
     e.nativeEvent.stopPropagation();
     
@@ -24,6 +26,8 @@ export function useShapeInteraction(objectId: string) {
   };
 
   const handlePointerOver = (e: ThreeEvent<PointerEvent>) => {
+    if (disableSelection) return;
+    
     e.stopPropagation();
     e.nativeEvent.stopPropagation();
     document.body.style.cursor = 'pointer';
@@ -32,6 +36,8 @@ export function useShapeInteraction(objectId: string) {
   };
 
   const handlePointerOut = (e: ThreeEvent<PointerEvent>) => {
+    if (disableSelection) return;
+    
     e.stopPropagation();
     e.nativeEvent.stopPropagation();
     document.body.style.cursor = 'default';

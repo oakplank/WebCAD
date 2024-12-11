@@ -4,6 +4,13 @@ import { Theme } from '../store/settingsStore';
 export type ViewMode = 'shaded' | 'wireframe' | 'surface';
 export type GeometryType = 'cube' | 'sphere' | 'cylinder' | 'imported' | 'group' | 'merged';
 
+export interface Face {
+  vertices: THREE.Vector3[];
+  normal: THREE.Vector3;
+  center: THREE.Vector3;
+  objectId: string;
+}
+
 export interface MaterialData {
   color: string;
   metalness?: number;
