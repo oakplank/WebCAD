@@ -71,6 +71,7 @@ export function Shape({ object }: ShapeProps) {
           color={object.color}
           viewMode={viewMode}
           geometry={object.geometry}
+          material={object.material}
         />
         <ShapeEdges
           type={object.type}

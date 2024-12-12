@@ -1,70 +1,48 @@
 import * as THREE from 'three';
-import { textureLogger } from '../../utils/textureLogger';
 import { MaterialData } from '../../types/scene.types';
 
 export class MaterialScanner {
-  scanMaterials(scene: THREE.Scene, textureMap: Map<string, string>) {
-    console.group('📦 Scanning GLB materials and textures');
+  private async createImageBitmapURL(bitmap: ImageBitmap): Promise<string> {
+    // Create a canvas and draw the ImageBitmap to it
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      throw new Error('Could not get 2D context');
+    }
     
-    let materialCount = 0;
-    let textureCount = 0;
-    const materials = new Map<string, MaterialData>();
-
-    scene.traverse((node) => {
-      if (node instanceof THREE.Mesh) {
-        materialCount++;
-        const material = Array.isArray(node.material) 
-          ? node.material[0] 
-          : node.material;
-        
-        if (material) {
-          // Log material type for debugging
-          console.log(`Material type for ${node.name}:`, material.type);
-          console.log('Material properties:', {
-            color: material.color?.getHexString(),
-            map: material.map?.uuid,
-            normalMap: material.normalMap?.uuid,
-            roughnessMap: material.roughnessMap?.uuid,
-            metalnessMap: material.metalnessMap?.uuid
-          });
-
-          const materialData = this.extractMaterialData(material, textureMap);
-          materials.set(material.uuid, materialData);
-          
-          // Count valid textures
-          textureCount += Object.entries(materialData)
-            .filter(([key, value]) => key.includes('Map') && value)
-            .length;
-
-          console.log(`📦 Material found on mesh: ${node.name}`, materialData);
-        }
-      }
-    });
-
-    console.log(`📊 Summary: Found ${materialCount} materials with ${textureCount} textures`);
-    console.groupEnd();
-
-    return materials;
+    // Draw the bitmap to the canvas
+    ctx.drawImage(bitmap, 0, 0);
+    
+    // Convert to data URL
+    return canvas.toDataURL('image/png');
   }
 
-  extractMaterialData(material: THREE.Material, textureMap: Map<string, string>): MaterialData {
+  async extractMaterialData(material: THREE.Material): Promise<MaterialData> {
+    console.group(`🔍 Processing material: ${material.uuid}`);
+    console.log('Material type:', material.type);
+
     // Support both MeshStandardMaterial and MeshBasicMaterial
     const isMeshStandard = material instanceof THREE.MeshStandardMaterial;
     const isMeshBasic = material instanceof THREE.MeshBasicMaterial;
 
     if (!isMeshStandard && !isMeshBasic) {
-      console.warn(`Non-standard material type found: ${material.type}`);
+      console.warn(`⚠️ Non-standard material type found: ${material.type}`);
     }
 
     const materialData: MaterialData = {
       color: '#' + (material.color ? material.color.getHexString() : 'cccccc')
     };
+    console.log('Base color:', materialData.color);
 
     // Add PBR properties if available
     if (isMeshStandard) {
+      console.log('Processing Standard Material');
       const standardMat = material as THREE.MeshStandardMaterial;
       materialData.metalness = standardMat.metalness;
       materialData.roughness = standardMat.roughness;
+      console.log('PBR properties:', { metalness: materialData.metalness, roughness: materialData.roughness });
 
       // Extract texture maps
       const maps = {
@@ -78,39 +56,111 @@ export class MaterialScanner {
 
       // Process each texture
       for (const [mapType, texture] of Object.entries(maps)) {
+        console.group(`Processing ${mapType}`);
         if (texture) {
-          const textureData = textureMap.get(texture.uuid);
-          if (textureData) {
-            materialData[mapType as keyof MaterialData] = textureData;
-            console.log(`✅ Found ${mapType} texture for material ${material.uuid}`);
+          console.log('Texture found:', texture.uuid);
+          if (texture.image) {
+            console.log('Image data present');
+            try {
+              // Get the image source directly
+              const imgSource = texture.source;
+              console.log('Source type:', imgSource?.constructor.name);
+              
+              if (imgSource && imgSource.data) {
+                console.log('Source data type:', imgSource.data?.constructor.name);
+                let textureUrl: string | undefined;
+                
+                // Handle different types of texture sources
+                if (imgSource.data instanceof HTMLImageElement) {
+                  textureUrl = imgSource.data.src;
+                  console.log('HTMLImageElement source:', textureUrl);
+                } else if (imgSource.data instanceof HTMLCanvasElement) {
+                  textureUrl = imgSource.data.toDataURL();
+                  console.log('Canvas source converted to data URL');
+                } else if (imgSource.data instanceof ImageBitmap) {
+                  textureUrl = await this.createImageBitmapURL(imgSource.data);
+                  console.log('ImageBitmap converted to data URL');
+                } else if ('data' in imgSource.data && imgSource.data.data) {
+                  const blob = new Blob([imgSource.data.data], { type: 'image/png' });
+                  textureUrl = URL.createObjectURL(blob);
+                  console.log('Binary data converted to blob URL:', textureUrl);
+                }
+
+                if (textureUrl) {
+                  materialData[mapType as keyof MaterialData] = textureUrl;
+                  console.log(`✅ Successfully processed ${mapType} texture`);
+                } else {
+                  console.warn(`⚠️ Could not generate URL for ${mapType} texture`);
+                }
+              } else {
+                console.warn('⚠️ No valid source data found');
+              }
+            } catch (error) {
+              console.error(`❌ Failed to process ${mapType} texture:`, error);
+            }
           } else {
-            console.warn(`⚠️ Missing texture data for ${mapType} on material ${material.uuid}`);
+            console.warn('⚠️ Texture has no image data');
           }
+        } else {
+          console.log(`${mapType} not present`);
         }
+        console.groupEnd();
       }
     } else if (isMeshBasic) {
+      console.log('Processing Basic Material');
       // Handle basic material textures
       const basicMat = material as THREE.MeshBasicMaterial;
       if (basicMat.map) {
-        const textureData = textureMap.get(basicMat.map.uuid);
-        if (textureData) {
-          materialData.map = textureData;
-          console.log(`✅ Found base texture for basic material ${material.uuid}`);
+        console.group('Processing base texture');
+        console.log('Texture found:', basicMat.map.uuid);
+        if (basicMat.map.image) {
+          console.log('Image data present');
+          try {
+            const imgSource = basicMat.map.source;
+            console.log('Source type:', imgSource?.constructor.name);
+            
+            if (imgSource && imgSource.data) {
+              console.log('Source data type:', imgSource.data?.constructor.name);
+              let textureUrl: string | undefined;
+              
+              if (imgSource.data instanceof HTMLImageElement) {
+                textureUrl = imgSource.data.src;
+                console.log('HTMLImageElement source:', textureUrl);
+              } else if (imgSource.data instanceof HTMLCanvasElement) {
+                textureUrl = imgSource.data.toDataURL();
+                console.log('Canvas source converted to data URL');
+              } else if (imgSource.data instanceof ImageBitmap) {
+                textureUrl = await this.createImageBitmapURL(imgSource.data);
+                console.log('ImageBitmap converted to data URL');
+              } else if ('data' in imgSource.data && imgSource.data.data) {
+                const blob = new Blob([imgSource.data.data], { type: 'image/png' });
+                textureUrl = URL.createObjectURL(blob);
+                console.log('Binary data converted to blob URL:', textureUrl);
+              }
+
+              if (textureUrl) {
+                materialData.map = textureUrl;
+                console.log('✅ Successfully processed base texture');
+              } else {
+                console.warn('⚠️ Could not generate URL for base texture');
+              }
+            } else {
+              console.warn('⚠️ No valid source data found');
+            }
+          } catch (error) {
+            console.error('❌ Failed to process base texture:', error);
+          }
+        } else {
+          console.warn('⚠️ Texture has no image data');
         }
+        console.groupEnd();
+      } else {
+        console.log('No base texture present');
       }
     }
 
-    // Log material details
-    console.group(`🎨 Material Details: ${material.uuid}`);
-    console.log('Type:', material.type);
-    console.log('Color:', materialData.color);
-    console.log('Metalness:', materialData.metalness);
-    console.log('Roughness:', materialData.roughness);
-    console.log('Maps:', Object.entries(materialData)
-      .filter(([key]) => key.includes('Map'))
-      .map(([key, value]) => `${key}: ${value ? '✅' : '❌'}`));
+    console.log('Final material data:', materialData);
     console.groupEnd();
-
     return materialData;
   }
 }

@@ -9,9 +9,12 @@ import { GroupObject } from './GroupObject';
 import { ModifyOverlay } from './modifiers/ModifyOverlay';
 import { GlobalFaceSelector } from './modifiers/GlobalFaceSelector';
 import { ReferenceOrigin } from './workplane/ReferenceOrigin';
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 export function Viewport() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const pmremGeneratorRef = useRef<THREE.PMREMGenerator | null>(null);
   const objects = useSceneStore(state => state.objects);
   const selectedObjectIds = useSceneStore(state => state.selectedObjectIds);
   const setSelectedObjects = useSceneStore(state => state.setSelectedObjects);
@@ -68,22 +71,53 @@ export function Viewport() {
         camera={{ 
           position: [15, 15, 15],
           up: [0, 0, 1],
-          fov: 45
+          fov: 45,
+          near: 0.1,
+          far: 1000
         }}
-        style={{ 
-          width: '100%', 
-          height: '100%',
-          background: backgroundColor 
+        gl={{
+          antialias: true,
+          toneMapping: THREE.ACESFilmicToneMapping,
+          toneMappingExposure: 1,
+          outputColorSpace: THREE.SRGBColorSpace
+        }}
+        onCreated={({ gl, scene, camera }) => {
+          // Initialize PMREM generator
+          pmremGeneratorRef.current = new THREE.PMREMGenerator(gl);
+          pmremGeneratorRef.current.compileEquirectangularShader();
+
+          // Set environment map
+          const environment = pmremGeneratorRef.current.fromScene(new RoomEnvironment(), 0.04).texture;
+          scene.environment = environment;
+          scene.background = new THREE.Color(backgroundColor);
+
+          // Set initial camera position
+          camera.position.set(15, 15, 15);
+          camera.lookAt(0, 0, 0);
+        }}
+        style={{
+          width: '100%',
+          height: '100%'
         }}
       >
-        <ambientLight intensity={1} />
-        <pointLight position={[10, 10, 10]} intensity={1} />
-        <directionalLight position={[-10, 10, -5]} intensity={0.5} />
+        {/* Lights */}
+        <ambientLight intensity={0.5} />
+        <directionalLight position={[5, 5, 5]} intensity={0.5} castShadow />
+        <pointLight position={[10, 10, 10]} intensity={0.5} />
+        <pointLight position={[-10, -10, -10]} intensity={0.3} />
         
         <OrbitControls 
           makeDefault
           target={[0, 0, 0]}
-          enableDamping={false}
+          enableDamping={true}
+          dampingFactor={0.05}
+          rotateSpeed={0.5}
+          panSpeed={0.5}
+          zoomSpeed={0.5}
+          minDistance={1}
+          maxDistance={500}
+          minPolarAngle={0}
+          maxPolarAngle={Math.PI}
           up={[0, 0, 1]}
         />
 
