@@ -32,27 +32,13 @@ export function extractFaces(mesh: THREE.Mesh, objectId: string): Face[] {
   
   // Process all triangles
   for (let i = 0; i < index.count; i += 3) {
-    const v1 = new THREE.Vector3();
-    const v2 = new THREE.Vector3();
-    const v3 = new THREE.Vector3();
-    const faceNormal = new THREE.Vector3();
-    
-    // Get vertices and calculate face normal
-    for (let j = 0; j < 3; j++) {
-      const idx = index.getX(i + j);
-      const vertex = j === 0 ? v1 : j === 1 ? v2 : v3;
-      vertex.set(
-        position.getX(idx),
-        position.getY(idx),
-        position.getZ(idx)
-      );
-    }
-
-    // Calculate geometric normal from vertices
-    const edge1 = v2.clone().sub(v1);
-    const edge2 = v3.clone().sub(v1);
-    faceNormal.crossVectors(edge1, edge2).normalize();
-    faceNormal.applyMatrix3(normalMatrix);
+    // Get face normal from first vertex normal
+    const idx = index.getX(i);
+    const faceNormal = new THREE.Vector3(
+      normal.getX(idx),
+      normal.getY(idx),
+      normal.getZ(idx)
+    ).applyMatrix3(normalMatrix).normalize();
 
     // Create key for this normal direction (rounded to handle floating point precision)
     const key = [
@@ -65,16 +51,29 @@ export function extractFaces(mesh: THREE.Mesh, objectId: string): Face[] {
     if (!faceMap.has(key)) {
       faceMap.set(key, {
         vertices: new Set(),
-        normal: faceNormal.clone()
+        normal: faceNormal
       });
     }
-    
-    // Transform vertices to world space and add to set
+
+    // Add all vertices of this triangle
     const faceData = faceMap.get(key)!;
-    [v1, v2, v3].forEach(v => {
-      v.applyMatrix4(worldMatrix);
-      faceData.vertices.add(`${v.x},${v.y},${v.z}`);
-    });
+    for (let j = 0; j < 3; j++) {
+      const vertexIndex = index.getX(i + j);
+      const vertex = new THREE.Vector3(
+        position.getX(vertexIndex),
+        position.getY(vertexIndex),
+        position.getZ(vertexIndex)
+      ).applyMatrix4(worldMatrix);
+
+      // Store vertex as string with reduced precision to help with merging
+      const vertexKey = [
+        Math.round(vertex.x * 1000) / 1000,
+        Math.round(vertex.y * 1000) / 1000,
+        Math.round(vertex.z * 1000) / 1000
+      ].join(',');
+      
+      faceData.vertices.add(vertexKey);
+    }
   }
 
   // Convert face map to Face objects
@@ -95,12 +94,15 @@ export function extractFaces(mesh: THREE.Mesh, objectId: string): Face[] {
     // Sort vertices to create a convex polygon
     const sortedVertices = sortVerticesClockwise(vertices, center, faceData.normal);
 
-    faces.push({
-      vertices: sortedVertices,
-      normal: faceData.normal,
-      center,
-      objectId
-    });
+    // Only create faces with 3 or more vertices
+    if (sortedVertices.length >= 3) {
+      faces.push({
+        vertices: sortedVertices,
+        normal: faceData.normal,
+        center,
+        objectId
+      });
+    }
   }
 
   return faces;

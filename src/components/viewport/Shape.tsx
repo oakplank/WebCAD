@@ -22,7 +22,6 @@ export function Shape({ object }: ShapeProps) {
   
   useEffect(() => {
     if (meshRef.current) {
-      // Store the object id in the mesh's userData
       meshRef.current.userData.id = object.id;
     }
   }, [object.id]);
@@ -32,7 +31,7 @@ export function Shape({ object }: ShapeProps) {
     handleClick,
     handlePointerOver,
     handlePointerOut
-  } = useShapeInteraction(object.id, mode !== 'none');
+  } = useShapeInteraction(object.id);
 
   const {
     handleTransformStart,
@@ -40,7 +39,6 @@ export function Shape({ object }: ShapeProps) {
     handleTransformEnd
   } = useTransformControls(meshRef, object.id);
 
-  // Ensure mesh has proper geometry and attributes
   useEffect(() => {
     if (meshRef.current && meshRef.current.geometry) {
       const geometry = meshRef.current.geometry;
@@ -64,9 +62,9 @@ export function Shape({ object }: ShapeProps) {
         position={object.position}
         rotation={rotationRad}
         scale={object.scale}
-        onClick={mode === 'none' ? handleClick : undefined}
-        onPointerOver={mode === 'none' ? handlePointerOver : undefined}
-        onPointerOut={mode === 'none' ? handlePointerOut : undefined}
+        onClick={handleClick}
+        onPointerOver={handlePointerOver}
+        onPointerOut={handlePointerOut}
       >
         <ShapeMesh
           type={object.type}

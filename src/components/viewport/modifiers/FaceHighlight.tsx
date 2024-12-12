@@ -12,20 +12,30 @@ export function FaceHighlight({ face, color, opacity = 0.3 }: FaceHighlightProps
   const geometry = useMemo(() => {
     const geo = new THREE.BufferGeometry();
     
-    // Create vertices array
-    const vertices = face.vertices.map(v => [v.x, v.y, v.z]).flat();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    // Get vertices in the correct order
+    const vertices = face.vertices;
+    const positions = new Float32Array(vertices.length * 3);
     
-    // Create triangles for the polygon using fan triangulation
+    // Create the face vertices
+    for (let i = 0; i < vertices.length; i++) {
+      positions[i * 3] = vertices[i].x;
+      positions[i * 3 + 1] = vertices[i].y;
+      positions[i * 3 + 2] = vertices[i].z;
+    }
+    
+    // Set vertices
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    
+    // Create triangulation indices for the polygon
     const indices = [];
-    for (let i = 1; i < face.vertices.length - 1; i++) {
+    for (let i = 1; i < vertices.length - 1; i++) {
       indices.push(0, i, i + 1);
     }
     geo.setIndex(indices);
     
     // Set face normal for all vertices
-    const normals = new Float32Array(vertices.length);
-    for (let i = 0; i < vertices.length; i += 3) {
+    const normals = new Float32Array(positions.length);
+    for (let i = 0; i < normals.length; i += 3) {
       normals[i] = face.normal.x;
       normals[i + 1] = face.normal.y;
       normals[i + 2] = face.normal.z;

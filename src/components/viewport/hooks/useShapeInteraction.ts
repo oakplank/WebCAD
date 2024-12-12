@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useSceneStore } from '../../../store/sceneStore';
+import { useModifyStore } from '../../../store/modifyStore';
 import { ThreeEvent } from '@react-three/fiber';
 
 export function useShapeInteraction(objectId: string, disableSelection: boolean = false) {
@@ -7,13 +8,15 @@ export function useShapeInteraction(objectId: string, disableSelection: boolean 
   const setSelectedObjects = useSceneStore(state => state.setSelectedObjects);
   const selectedObjectIds = useSceneStore(state => state.selectedObjectIds);
   const setHoveredObject = useSceneStore(state => state.setHoveredObject);
+  const mode = useModifyStore(state => state.mode);
 
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
+    if (mode !== 'none') return; // Don't handle selection when in modify mode
     if (disableSelection) return;
     
     e.stopPropagation();
     e.nativeEvent.stopPropagation();
-    
+
     if (e.ctrlKey || e.metaKey) {
       if (selectedObjectIds.includes(objectId)) {
         setSelectedObjects(selectedObjectIds.filter(id => id !== objectId));
@@ -21,13 +24,13 @@ export function useShapeInteraction(objectId: string, disableSelection: boolean 
         setSelectedObjects([...selectedObjectIds, objectId]);
       }
     } else {
-      setSelectedObjects([objectId]);
+      if (!selectedObjectIds.includes(objectId)) {
+        setSelectedObjects([objectId]);
+      }
     }
   };
 
   const handlePointerOver = (e: ThreeEvent<PointerEvent>) => {
-    if (disableSelection) return;
-    
     e.stopPropagation();
     e.nativeEvent.stopPropagation();
     document.body.style.cursor = 'pointer';
@@ -36,8 +39,6 @@ export function useShapeInteraction(objectId: string, disableSelection: boolean 
   };
 
   const handlePointerOut = (e: ThreeEvent<PointerEvent>) => {
-    if (disableSelection) return;
-    
     e.stopPropagation();
     e.nativeEvent.stopPropagation();
     document.body.style.cursor = 'default';

@@ -24,10 +24,8 @@ export function GlobalFaceSelector() {
       return;
     }
 
-    // Update faces when hovering a new mesh
     if (mesh !== hoveredMesh) {
       setHoveredMesh(mesh);
-      // Get the userData.id if it exists, otherwise fall back to mesh.uuid
       const objectId = mesh.userData.id || mesh.uuid;
       const newFaces = extractFaces(mesh, objectId);
       setFaces(newFaces);
@@ -36,11 +34,8 @@ export function GlobalFaceSelector() {
   }, [hoveredMesh]);
 
   useEffect(() => {
-    const container = document.querySelector('div[tabindex="0"]');
-    if (!container) return;
-
     const handleMouseMove = (event: MouseEvent) => {
-      const canvas = container.querySelector('canvas');
+      const canvas = document.querySelector('canvas');
       if (!canvas) return;
 
       const rect = canvas.getBoundingClientRect();
@@ -62,16 +57,13 @@ export function GlobalFaceSelector() {
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (document.activeElement === container && event.key.toLowerCase() === 'f' && faces.length > 0) {
+      if (event.key.toLowerCase() === 'f' && faces.length > 0) {
         event.preventDefault();
-        event.stopPropagation();
         setCurrentFaceIndex(prev => (prev + 1) % faces.length);
       }
     };
 
     const handleClick = (event: MouseEvent) => {
-      const canvas = container.querySelector('canvas');
-      if (!canvas || !canvas.contains(event.target as Node)) return;
       if (!hoveredMesh || currentFaceIndex < 0 || !faces[currentFaceIndex]) return;
 
       const selectedFace = faces[currentFaceIndex];
@@ -80,23 +72,28 @@ export function GlobalFaceSelector() {
       } else if (selectedFace1.objectId !== selectedFace.objectId || 
                  !selectedFace1.center.equals(selectedFace.center)) {
         setSelectedFace2(selectedFace);
-        if (mode === 'measure') {
-          const distance = selectedFace.center.distanceTo(selectedFace1.center);
-          useModifyStore.getState().setMeasurementResult(distance);
-        }
       }
     };
 
-    container.addEventListener('mousemove', handleMouseMove);
-    container.addEventListener('keydown', handleKeyDown, true);
-    container.addEventListener('click', handleClick);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('click', handleClick);
     
     return () => {
-      container.removeEventListener('mousemove', handleMouseMove);
-      container.removeEventListener('keydown', handleKeyDown, true);
-      container.removeEventListener('click', handleClick);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('click', handleClick);
     };
-  }, [camera, raycaster, scene, faces, currentFaceIndex, selectedFace1, mode, setSelectedFace1, setSelectedFace2, updateHoveredMesh]);
+  }, [camera, raycaster, scene, faces, currentFaceIndex, selectedFace1, updateHoveredMesh, setSelectedFace1, setSelectedFace2]);
+
+  // Debug logging
+  useEffect(() => {
+    if (hoveredMesh) {
+      console.log('Hovered mesh:', hoveredMesh);
+      console.log('Current face index:', currentFaceIndex);
+      console.log('Available faces:', faces);
+    }
+  }, [hoveredMesh, currentFaceIndex, faces]);
 
   return (
     <>
