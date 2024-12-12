@@ -2,6 +2,7 @@ import React from 'react';
 import * as THREE from 'three';
 import { GeometryType, ViewMode } from '../../../types/scene.types';
 import { createGeometry } from '../utils/geometryUtils';
+import { ProgressiveMaterial } from './ProgressiveMaterial';
 
 interface ShapeMeshProps {
   type: GeometryType;
@@ -13,9 +14,18 @@ interface ShapeMeshProps {
     normals: number[];
     uvs?: number[];
   };
+  material?: {
+    color: string;
+    metalness?: number;
+    roughness?: number;
+    map?: string;
+    normalMap?: string;
+    roughnessMap?: string;
+    metalnessMap?: string;
+  };
 }
 
-export function ShapeMesh({ type, color, viewMode, geometry }: ShapeMeshProps) {
+export function ShapeMesh({ type, color, viewMode, geometry, material }: ShapeMeshProps) {
   if (type === 'group') return null;
   
   const meshGeometry = React.useMemo(() => {
@@ -39,22 +49,18 @@ export function ShapeMesh({ type, color, viewMode, geometry }: ShapeMeshProps) {
   return (
     <>
       <primitive object={meshGeometry} attach="geometry" />
-      {viewMode === 'surface' ? (
-        <meshBasicMaterial 
-          color={color}
-          side={THREE.DoubleSide}
-          transparent={false}
-        />
-      ) : (
-        <meshStandardMaterial 
-          color={color}
-          wireframe={viewMode === 'wireframe'}
-          roughness={0.5}
-          metalness={0.5}
-          side={THREE.DoubleSide}
-          transparent={false}
-        />
-      )}
+      <ProgressiveMaterial
+        materialData={{
+          color: material?.color || color,
+          metalness: material?.metalness,
+          roughness: material?.roughness,
+          map: material?.map,
+          normalMap: material?.normalMap,
+          roughnessMap: material?.roughnessMap,
+          metalnessMap: material?.metalnessMap
+        }}
+        viewMode={viewMode}
+      />
     </>
   );
 }
