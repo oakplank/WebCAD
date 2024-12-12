@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Grid } from '@react-three/drei';
+import { OrbitControls } from '@react-three/drei';
 import { useSceneStore } from '../../store/sceneStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useModifyStore } from '../../store/modifyStore';
@@ -8,6 +8,7 @@ import { Shape } from './Shape';
 import { GroupObject } from './GroupObject';
 import { ModifyOverlay } from './modifiers/ModifyOverlay';
 import { GlobalFaceSelector } from './modifiers/GlobalFaceSelector';
+import { ReferenceOrigin } from './workplane/ReferenceOrigin';
 
 export function Viewport() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -16,7 +17,7 @@ export function Viewport() {
   const selectedObjectIds = useSceneStore(state => state.selectedObjectIds);
   const setSelectedObjects = useSceneStore(state => state.setSelectedObjects);
   const removeObject = useSceneStore(state => state.removeObject);
-  const { backgroundColor, showGrid, viewDistance } = useSettingsStore();
+  const { backgroundColor } = useSettingsStore();
   const { mode, reset } = useModifyStore();
 
   useEffect(() => {
@@ -51,10 +52,8 @@ export function Viewport() {
       }
     };
 
-    // Focus the container by default
     container.focus();
 
-    // Handle clicks outside the viewport
     const handleClickOutside = (e: MouseEvent) => {
       if (!container.contains(e.target as Node)) {
         if (mode === 'none') {
@@ -78,20 +77,19 @@ export function Viewport() {
     };
   }, [selectedObjectIds, setSelectedObjects, removeObject, mode, reset]);
 
-  const handleCanvasClick = (e: any) => {
-    if (!e.object && mode === 'none') {
+  const handleCanvasClick = (event: any) => {
+    if (!event.object && mode === 'none') {
       setSelectedObjects([]);
     }
   };
 
-  // Only render root-level objects (those without parents)
   const rootObjects = objects.filter(obj => !obj.parentId);
 
   return (
     <div 
       ref={containerRef}
       style={{ position: 'relative', width: '100%', height: '100%' }}
-      tabIndex={0} // Make the container focusable
+      tabIndex={0}
     >
       <ModifyOverlay />
       
@@ -112,26 +110,14 @@ export function Viewport() {
         <pointLight position={[10, 10, 10]} intensity={1} />
         <directionalLight position={[-10, 10, -5]} intensity={0.5} />
         
-        {showGrid && (
-          <group rotation={[Math.PI / 2, 0, 0]}>
-            <Grid 
-              infiniteGrid
-              sectionSize={1}
-              sectionColor="#2080ff"
-              cellSize={0.1}
-              cellColor="#808080"
-              fadeDistance={viewDistance}
-              fadeStrength={1}
-            />
-          </group>
-        )}
-        
         <OrbitControls 
           makeDefault
           target={[0, 0, 0]}
           enableDamping={false}
           up={[0, 0, 1]}
         />
+
+        <ReferenceOrigin />
         
         {rootObjects.map(object => (
           object.type === 'group' ? (

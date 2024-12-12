@@ -20,6 +20,13 @@ export function Shape({ object }: ShapeProps) {
   const isSelected = useSceneStore(state => state.selectedObjectIds.includes(object.id));
   const mode = useModifyStore(state => state.mode);
   
+  useEffect(() => {
+    if (meshRef.current) {
+      // Store the object id in the mesh's userData
+      meshRef.current.userData.id = object.id;
+    }
+  }, [object.id]);
+
   const {
     isHovered,
     handleClick,

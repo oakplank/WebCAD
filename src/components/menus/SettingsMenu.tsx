@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled from '@emotion/styled';
 import { useSettingsStore } from '../../store/settingsStore';
-import { FaSun, FaMoon, FaCog } from 'react-icons/fa';
+import { FaSun, FaMoon, FaCog, FaCrosshairs } from 'react-icons/fa';
 
 const MenuContainer = styled.div`
   position: relative;
@@ -35,7 +35,7 @@ const Dropdown = styled.div<{ $isOpen: boolean; $theme: 'light' | 'dark' }>`
   min-width: 200px;
 `;
 
-const MenuItem = styled.div<{ $theme: 'light' | 'dark' }>`
+const MenuItem = styled.div<{ $theme: 'light' | 'dark'; $danger?: boolean }>`
   padding: 8px 16px;
   cursor: pointer;
   display: flex;
@@ -44,9 +44,12 @@ const MenuItem = styled.div<{ $theme: 'light' | 'dark' }>`
   gap: 8px;
   color: ${props => props.$theme === 'dark' ? '#ffffff' : '#000000'};
   &:hover {
-    background: ${props => props.$theme === 'dark' ? '#3d3d3d' : '#f0f0f0'};
+    background: ${props => props.$theme === 'dark' ? '#3d3d3d' : '#f5f5f5'};
   }
-  font-size: 14px;
+`;
+
+const Label = styled.span<{ $theme: 'light' | 'dark' }>`
+  color: ${props => props.$theme === 'dark' ? '#ffffff' : '#000000'};
 `;
 
 const ColorInput = styled.input`
@@ -69,10 +72,6 @@ const RangeInput = styled.input`
   width: 100px;
 `;
 
-const Label = styled.span<{ $theme: 'light' | 'dark' }>`
-  color: ${props => props.$theme === 'dark' ? '#ffffff' : '#000000'};
-`;
-
 export function SettingsMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const { 
@@ -83,12 +82,10 @@ export function SettingsMenu() {
     showGrid,
     setShowGrid,
     viewDistance,
-    setViewDistance
+    setViewDistance,
+    originVisible,
+    setOriginVisible
   } = useSettingsStore();
-
-  const toggleTheme = () => {
-    setTheme(theme === 'light' ? 'dark' : 'light');
-  };
 
   return (
     <MenuContainer onMouseLeave={() => setIsOpen(false)}>
@@ -100,10 +97,11 @@ export function SettingsMenu() {
         Settings
       </MenuButton>
       <Dropdown $isOpen={isOpen} $theme={theme}>
-        <MenuItem $theme={theme} onClick={toggleTheme}>
+        <MenuItem $theme={theme} onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
           <Label $theme={theme}>Theme</Label>
           {theme === 'light' ? <FaMoon /> : <FaSun />}
         </MenuItem>
+        
         <MenuItem $theme={theme}>
           <Label $theme={theme}>Background</Label>
           <ColorInput
@@ -112,6 +110,7 @@ export function SettingsMenu() {
             onChange={(e) => setBackgroundColor(e.target.value)}
           />
         </MenuItem>
+        
         <MenuItem $theme={theme}>
           <Label $theme={theme}>Show Grid</Label>
           <input
@@ -120,6 +119,16 @@ export function SettingsMenu() {
             onChange={(e) => setShowGrid(e.target.checked)}
           />
         </MenuItem>
+
+        <MenuItem $theme={theme}>
+          <Label $theme={theme}>Origin Visible</Label>
+          <input
+            type="checkbox"
+            checked={originVisible}
+            onChange={(e) => setOriginVisible(e.target.checked)}
+          />
+        </MenuItem>
+        
         <MenuItem $theme={theme}>
           <Label $theme={theme}>View Distance</Label>
           <RangeInput

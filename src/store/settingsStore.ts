@@ -8,10 +8,12 @@ interface SettingsState {
   backgroundColor: string;
   showGrid: boolean;
   viewDistance: number;
+  originVisible: boolean;  // New setting
   setTheme: (theme: Theme) => void;
   setBackgroundColor: (color: string) => void;
   setShowGrid: (show: boolean) => void;
   setViewDistance: (distance: number) => void;
+  setOriginVisible: (visible: boolean) => void;  // New setter
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -21,10 +23,12 @@ export const useSettingsStore = create<SettingsState>()(
       backgroundColor: '#f0f0f0',
       showGrid: true,
       viewDistance: 30,
+      originVisible: true,  // Default to visible
       setTheme: (theme) => set({ theme }),
-      setBackgroundColor: (color) => set({ backgroundColor: color }), // Fixed the backgroundColor update
+      setBackgroundColor: (color) => set({ backgroundColor: color }),
       setShowGrid: (show) => set({ showGrid: show }),
       setViewDistance: (distance) => set({ viewDistance: distance }),
+      setOriginVisible: (visible) => set({ originVisible: visible })
     }),
     {
       name: 'webcad-settings',

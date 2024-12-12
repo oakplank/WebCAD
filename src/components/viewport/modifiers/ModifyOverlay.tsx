@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import styled from '@emotion/styled';
 import * as THREE from 'three';
 import { useSceneStore } from '../../../store/sceneStore';
@@ -47,40 +47,35 @@ export function ModifyOverlay() {
   const updateObject = useSceneStore(state => state.updateObject);
   const objects = useSceneStore(state => state.objects);
 
-  useEffect(() => {
+  // Handle alignment when both faces are selected
+  React.useEffect(() => {
     if (mode === 'align' && selectedFace1 && selectedFace2) {
-      // Check if faces are parallel
-      const angle = selectedFace1.normal.angleTo(selectedFace2.normal);
-      const isParallel = Math.abs(angle) < 0.1 || Math.abs(Math.PI - angle) < 0.1;
+      // Find source object
+      const sourceObject = objects.find(obj => obj.id === selectedFace1.objectId);
+      
+      if (sourceObject) {
+        // Calculate translation vector
+        const translation = new THREE.Vector3().subVectors(
+          selectedFace2.center,
+          selectedFace1.center
+        );
 
-      if (!isParallel) {
-        alert('Faces must be parallel for alignment');
-        useModifyStore.getState().reset();
-        return;
+        // Update object position
+        const newPosition = [
+          sourceObject.position[0] + translation.x,
+          sourceObject.position[1] + translation.y,
+          sourceObject.position[2] + translation.z
+        ] as [number, number, number];
+
+        // Update position and save state
+        updateObject(sourceObject.id, { position: newPosition });
+        useSceneStore.getState().saveState();
       }
 
-      // Find the source object (the one we'll move)
-      const sourceObject = objects.find(obj => obj.id === selectedFace1.objectId);
-      if (!sourceObject) return;
-
-      // Calculate translation to align faces
-      const translation = new THREE.Vector3().subVectors(selectedFace2.center, selectedFace1.center);
-      
-      // Project translation onto the normal direction
-      const normalizedNormal = selectedFace2.normal.clone().normalize();
-      const projectedTranslation = normalizedNormal.multiplyScalar(translation.dot(normalizedNormal));
-
-      // Apply translation
-      const newPosition = new THREE.Vector3(...sourceObject.position).add(projectedTranslation);
-
-      updateObject(sourceObject.id, {
-        position: [newPosition.x, newPosition.y, newPosition.z]
-      });
-
-      // Reset the modify state
+      // Reset modify state
       useModifyStore.getState().reset();
     }
-  }, [mode, selectedFace1, selectedFace2, updateObject, objects]);
+  }, [selectedFace2]); // Only trigger on second face selection
 
   if (mode === 'none') return null;
 
@@ -94,9 +89,9 @@ export function ModifyOverlay() {
 
       <Instructions>
         {!selectedFace1 ? (
-          <>Hover over an object and press F to cycle through faces. Click to select.</>
+          'Select first face (Press F to cycle through faces)'
         ) : !selectedFace2 ? (
-          <>Select second face (Press F to cycle through faces)</>
+          'Select second face (Press F to cycle through faces)'
         ) : mode === 'align' ? (
           'Aligning faces...'
         ) : (

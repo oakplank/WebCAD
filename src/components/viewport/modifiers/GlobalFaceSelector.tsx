@@ -27,7 +27,9 @@ export function GlobalFaceSelector() {
     // Update faces when hovering a new mesh
     if (mesh !== hoveredMesh) {
       setHoveredMesh(mesh);
-      const newFaces = extractFaces(mesh);
+      // Get the userData.id if it exists, otherwise fall back to mesh.uuid
+      const objectId = mesh.userData.id || mesh.uuid;
+      const newFaces = extractFaces(mesh, objectId);
       setFaces(newFaces);
       setCurrentFaceIndex(0);
     }
@@ -60,7 +62,6 @@ export function GlobalFaceSelector() {
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Only handle F key when container is focused and we have faces to cycle through
       if (document.activeElement === container && event.key.toLowerCase() === 'f' && faces.length > 0) {
         event.preventDefault();
         event.stopPropagation();
@@ -95,7 +96,7 @@ export function GlobalFaceSelector() {
       container.removeEventListener('keydown', handleKeyDown, true);
       container.removeEventListener('click', handleClick);
     };
-  }, [camera, raycaster, scene, faces, currentFaceIndex, selectedFace1, mode, hoveredMesh, setSelectedFace1, setSelectedFace2, updateHoveredMesh]);
+  }, [camera, raycaster, scene, faces, currentFaceIndex, selectedFace1, mode, setSelectedFace1, setSelectedFace2, updateHoveredMesh]);
 
   return (
     <>

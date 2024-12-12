@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Face } from '../types/scene.types';
 
-export function extractFaces(mesh: THREE.Mesh): Face[] {
+export function extractFaces(mesh: THREE.Mesh, objectId: string): Face[] {
   const geometry = mesh.geometry;
   
   // Ensure we have required attributes
@@ -99,7 +99,7 @@ export function extractFaces(mesh: THREE.Mesh): Face[] {
       vertices: sortedVertices,
       normal: faceData.normal,
       center,
-      objectId: mesh.uuid
+      objectId
     });
   }
 
