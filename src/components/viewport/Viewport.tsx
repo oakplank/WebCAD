@@ -97,9 +97,13 @@ export function Viewport() {
         }}
         style={{
           width: '100%',
-          height: '100%'
+          height: '100%',
+          background: backgroundColor
         }}
       >
+        {/* Set scene background color */}
+        <color attach="background" args={[backgroundColor]} />
+        
         {/* Lights */}
         <ambientLight intensity={0.5} />
         <directionalLight position={[5, 5, 5]} intensity={0.5} castShadow />
