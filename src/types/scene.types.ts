@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Theme } from '../store/settingsStore';
 
 export type ViewMode = 'shaded' | 'wireframe' | 'surface';
-export type GeometryType = 'cube' | 'sphere' | 'cylinder' | 'imported' | 'group' | 'merged';
+export type GeometryType = 'cube' | 'sphere' | 'cylinder' | 'imported' | 'group' | 'merged' | 'workplane' | 'sketch';
 
 export interface Face {
   vertices: THREE.Vector3[];
@@ -32,6 +32,38 @@ export interface GeometryData {
   uvs?: number[];
 }
 
+export type SketchEntityType = 'line' | 'circle' | 'arc';
+
+export interface SketchEntity {
+  id: string;
+  type: SketchEntityType;
+  // For lines: [x1, y1, x2, y2], for circles: [cx, cy, r], for arc: [cx, cy, r, startAngle, endAngle]
+  data: number[];
+}
+
+export type ConstraintType = 'coincident' | 'parallel' | 'perpendicular' | 'fixed' | 'dimension';
+
+export interface Constraint {
+  id: string;
+  type: ConstraintType;
+  entityIds: string[];
+  parameters?: Record<string, number>;
+}
+
+export interface Sketch {
+  id: string;
+  name: string;
+  workplaneId: string; // The workplane this sketch is attached to
+  entities: SketchEntity[];
+  constraints: Constraint[];
+  isClosed?: boolean; // For extrusion
+}
+
+export interface FeatureHistoryItem {
+  type: 'sketch' | 'extrude' | 'revolve' | 'boolean' | 'other';
+  data: any;
+}
+
 export interface SceneObject {
   id: string;
   name: string;
@@ -45,6 +77,14 @@ export interface SceneObject {
   children: string[];
   geometry?: GeometryData;
   material?: MaterialData;
+  sketch?: Sketch;
+  featureHistory?: FeatureHistoryItem[];
+  properties?: Record<string, any>;
+  // Workplane-specific properties
+  normal?: [number, number, number];
+  up?: [number, number, number];
+  isReference?: boolean;
+  size?: number;
 }
 
 export interface HistoryState {
@@ -59,6 +99,8 @@ export interface SceneState {
   history: HistoryState[];
   currentHistoryIndex: number;
   hoveredObjectId: string | null;
+  activeSketchId?: string | null;
+  setActiveSketchId?: (id: string | null) => void;
   setHoveredObject: (id: string | null) => void;
   saveState: () => void;
   addObject: (object: Omit<SceneObject, 'id' | 'name' | 'parentId' | 'children'>) => void;
@@ -75,4 +117,6 @@ export interface SceneState {
   redo: () => void;
   canUndo: () => boolean;
   canRedo: () => boolean;
+  createWorkplane: (props: Partial<SceneObject>) => void;
+  renameWorkplane: (id: string, newName: string) => void;
 }

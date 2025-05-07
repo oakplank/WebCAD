@@ -21,6 +21,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
   history: [{ objects: [], selectedObjectIds: [] }],
   currentHistoryIndex: 0,
   hoveredObjectId: null,
+  activeSketchId: null,
 
   setHoveredObject: (id) => set({ hoveredObjectId: id }),
 
@@ -341,5 +342,49 @@ export const useSceneStore = create<SceneState>((set, get) => ({
       console.error('Failed to merge objects:', error);
       return state;
     }
-  })
+  }),
+
+  // --- Workplane Management ---
+  createWorkplane: (props: Partial<SceneObject>) => set((state) => {
+    const newWorkplane: SceneObject = {
+      id: crypto.randomUUID(),
+      name: props.name || `Workplane_${state.objects.length + 1}`,
+      type: 'workplane',
+      position: props.position || [0, 0, 0],
+      rotation: props.rotation || [0, 0, 0],
+      scale: props.scale || [1, 1, 1],
+      color: props.color || '#666666',
+      visible: true,
+      parentId: props.parentId || null,
+      children: [],
+      normal: props.normal || [0, 0, 1],
+      up: props.up || [0, 1, 0],
+      isReference: props.isReference || false,
+      size: props.size || 20,
+      properties: props.properties || {},
+    };
+    const newObjects = [...state.objects, newWorkplane];
+    const newState = { objects: newObjects, selectedObjectIds: [newWorkplane.id] };
+    const newHistory = addToHistory(newState, state.history, state.currentHistoryIndex);
+    return {
+      ...newState,
+      history: newHistory,
+      currentHistoryIndex: newHistory.length - 1
+    };
+  }),
+  renameWorkplane: (id: string, newName: string) => set((state) => {
+    const workplane = state.objects.find(obj => obj.id === id && obj.type === 'workplane');
+    if (!workplane) return state;
+    const newObjects = state.objects.map(obj =>
+      obj.id === id ? { ...obj, name: newName } : obj
+    );
+    const newState = { objects: newObjects, selectedObjectIds: state.selectedObjectIds };
+    const newHistory = addToHistory(newState, state.history, state.currentHistoryIndex);
+    return {
+      ...newState,
+      history: newHistory,
+      currentHistoryIndex: newHistory.length - 1
+    };
+  }),
+  setActiveSketchId: (id: string | null) => set({ activeSketchId: id }),
 }));

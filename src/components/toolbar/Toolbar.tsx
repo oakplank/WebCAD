@@ -1,9 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import styled from '@emotion/styled';
 import { useSceneStore } from '../../store/sceneStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useModifyStore } from '../../store/modifyStore';
-import { FaCube, FaCircle, FaBorderAll, FaSquare, FaUndo, FaRedo, FaRuler, FaArrowsAltH } from 'react-icons/fa';
+import { FaCube, FaCircle, FaBorderAll, FaSquare, FaUndo, FaRedo, FaRuler, FaArrowsAltH, FaDraftingCompass, FaPencilRuler } from 'react-icons/fa';
 import { BiCylinder } from 'react-icons/bi';
 import { MdOutlineViewInAr } from 'react-icons/md';
 import { ViewMode } from '../../types/scene.types';
@@ -91,6 +91,10 @@ export function Toolbar() {
   const theme = useSettingsStore(state => state.theme);
   const mode = useModifyStore(state => state.mode);
   const reset = useModifyStore(state => state.reset);
+  const createWorkplane = useSceneStore(state => state.createWorkplane);
+  const objects = useSceneStore(state => state.objects);
+  const updateObject = useSceneStore(state => state.updateObject);
+  const selectedObjectIds = useSceneStore(state => state.selectedObjectIds);
 
   const handleModeChange = (newMode: 'measure' | 'align') => {
     if (mode === newMode) {
@@ -131,6 +135,72 @@ export function Toolbar() {
       color: '#' + Math.floor(Math.random()*16777215).toString(16),
       visible: true
     });
+  };
+
+  // --- Workplane & Sketch Logic ---
+  const handleCreateWorkplane = () => {
+    const name = window.prompt('Enter workplane name:', 'Workplane');
+    if (!name) return;
+    createWorkplane({ name });
+  };
+
+  const handleCreateSketch = () => {
+    // Find all workplanes
+    const workplanes = objects.filter(obj => obj.type === 'workplane');
+    if (workplanes.length === 0) {
+      alert('No workplanes exist. Please create a workplane first.');
+      return;
+    }
+    let workplaneId = workplanes[0].id;
+    if (workplanes.length > 1) {
+      const name = window.prompt('Enter workplane name to sketch on:\n' + workplanes.map(wp => wp.name).join(', '), workplanes[0].name);
+      const found = workplanes.find(wp => wp.name === name);
+      if (found) workplaneId = found.id;
+      else return;
+    }
+    // Create a sketch object as a child of the selected workplane
+    const sketchName = window.prompt('Enter sketch name:', 'Sketch');
+    if (!sketchName) return;
+    const sketch = {
+      id: crypto.randomUUID(),
+      name: sketchName,
+      workplaneId,
+      entities: [],
+      constraints: [],
+      isClosed: false
+    };
+    // Add sketch as a SceneObject, then set its parentId
+    addObject({
+      type: 'sketch',
+      position: [0, 0, 0],
+      rotation: [0, 0, 0],
+      scale: [1, 1, 1],
+      color: '#ff9900',
+      visible: true,
+      sketch
+    });
+    // Set parentId for the newly created sketch object
+    setTimeout(() => {
+      const newSketchObj = useSceneStore.getState().objects.find(obj => obj.sketch?.id === sketch.id);
+      if (newSketchObj) {
+        updateObject(newSketchObj.id, { parentId: workplaneId });
+      }
+    }, 0);
+  };
+
+  // Look At logic
+  const lookAtEventRef = useRef<{ trigger: (target: any) => void } | null>(null);
+  // Provide a way for the viewport to register a callback
+  (window as any).__webcad_lookAtEventRef = lookAtEventRef;
+  const handleLookAt = () => {
+    if (!selectedObjectIds.length) return;
+    const obj = objects.find(o => o.id === selectedObjectIds[0]);
+    if (!obj) return;
+    if (lookAtEventRef.current) {
+      lookAtEventRef.current.trigger(obj);
+    } else if ((window as any).__webcad_lookAtEventRef?.current) {
+      (window as any).__webcad_lookAtEventRef.current.trigger(obj);
+    }
   };
 
   return (
@@ -200,6 +270,24 @@ export function Toolbar() {
             <FaSquare />
             <span>Surface</span>
           </ViewButton>
+          <ToolButton onClick={handleLookAt} $theme={theme}>
+            <FaArrowsAltH />
+            <span>Look At</span>
+          </ToolButton>
+        </ButtonGroup>
+      </ToolSection>
+
+      <ToolSection $theme={theme}>
+        <SectionTitle $theme={theme}>Workplanes & Sketches</SectionTitle>
+        <ButtonGroup>
+          <ToolButton onClick={handleCreateWorkplane} $theme={theme}>
+            <FaDraftingCompass />
+            <span>Create Workplane</span>
+          </ToolButton>
+          <ToolButton onClick={handleCreateSketch} $theme={theme}>
+            <FaPencilRuler />
+            <span>Create Sketch</span>
+          </ToolButton>
         </ButtonGroup>
       </ToolSection>
 

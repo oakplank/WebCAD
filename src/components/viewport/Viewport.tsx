@@ -11,6 +11,8 @@ import { GlobalFaceSelector } from './modifiers/GlobalFaceSelector';
 import { ReferenceOrigin } from './workplane/ReferenceOrigin';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { SketchEditorOverlay } from './SketchEditorOverlay';
+import { SketchToolPanel } from './SketchToolPanel';
 
 export function Viewport() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -21,6 +23,11 @@ export function Viewport() {
   const removeObject = useSceneStore(state => state.removeObject);
   const { backgroundColor } = useSettingsStore();
   const { mode, reset } = useModifyStore();
+  const activeSketchId = useSceneStore(state => state.activeSketchId);
+  const activeSketchObj = objects.find(obj => obj.id === activeSketchId);
+  const workplaneObj = activeSketchObj && objects.find(obj => obj.id === activeSketchObj.parentId && obj.type === 'workplane');
+  const cameraRef = useRef<any>(null);
+  const [sketchTool, setSketchTool] = React.useState<'select' | 'line' | 'circle' | 'arc' | 'constraint' | 'dimension'>('select');
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -51,6 +58,66 @@ export function Viewport() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedObjectIds, setSelectedObjects, removeObject, mode, reset]);
 
+  // Camera look-at logic for active sketch
+  useEffect(() => {
+    if (!activeSketchObj || !workplaneObj) return;
+    // Compute camera position and orientation
+    const origin = workplaneObj.position || [0, 0, 0];
+    const normal = workplaneObj.normal || [0, 0, 1];
+    const up = workplaneObj.up || [0, 1, 0];
+    // Place camera a fixed distance along the normal
+    const distance = 20;
+    const cameraPos = [
+      origin[0] + normal[0] * distance,
+      origin[1] + normal[1] * distance,
+      origin[2] + normal[2] * distance
+    ];
+    // Set camera
+    if (cameraRef.current) {
+      cameraRef.current.position.set(...cameraPos);
+      cameraRef.current.up.set(...up);
+      cameraRef.current.lookAt(...origin);
+    }
+  }, [activeSketchObj, workplaneObj]);
+
+  // Register lookAt event handler for toolbar
+  useEffect(() => {
+    const lookAtHandler = {
+      trigger: (obj: any) => {
+        let origin = [0, 0, 0];
+        let normal = [0, 0, 1];
+        let up = [0, 1, 0];
+        if (obj.type === 'workplane') {
+          origin = obj.position || [0, 0, 0];
+          normal = obj.normal || [0, 0, 1];
+          up = obj.up || [0, 1, 0];
+        } else if (obj.type === 'sketch') {
+          const workplane = objects.find(o => o.id === obj.parentId && o.type === 'workplane');
+          if (workplane) {
+            origin = workplane.position || [0, 0, 0];
+            normal = workplane.normal || [0, 0, 1];
+            up = workplane.up || [0, 1, 0];
+          }
+        }
+        const distance = 20;
+        const cameraPos = [
+          origin[0] + normal[0] * distance,
+          origin[1] + normal[1] * distance,
+          origin[2] + normal[2] * distance
+        ];
+        if (cameraRef.current) {
+          cameraRef.current.position.set(...cameraPos);
+          cameraRef.current.up.set(...up);
+          cameraRef.current.lookAt(...origin);
+        }
+      }
+    };
+    (window as any).__webcad_lookAtEventRef = { current: lookAtHandler };
+    return () => {
+      (window as any).__webcad_lookAtEventRef = null;
+    };
+  }, [objects]);
+
   const rootObjects = objects.filter(obj => !obj.parentId);
 
   return (
@@ -66,7 +133,12 @@ export function Viewport() {
       onMouseDown={() => containerRef.current?.focus()}
     >
       <ModifyOverlay />
-      
+      {activeSketchObj && workplaneObj && (
+        <>
+          <SketchToolPanel tool={sketchTool} setTool={setSketchTool} />
+          <SketchEditorOverlay sketch={activeSketchObj.sketch} workplane={workplaneObj} tool={sketchTool} />
+        </>
+      )}
       <Canvas
         camera={{ 
           position: [15, 15, 15],
@@ -94,6 +166,7 @@ export function Viewport() {
           // Set initial camera position
           camera.position.set(15, 15, 15);
           camera.lookAt(0, 0, 0);
+          cameraRef.current = camera;
         }}
         style={{
           width: '100%',

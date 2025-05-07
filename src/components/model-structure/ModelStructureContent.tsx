@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import styled from '@emotion/styled';
 import { useSceneStore } from '../../store/sceneStore';
 import { useSettingsStore } from '../../store/settingsStore';
-import { FaEye, FaEyeSlash, FaChevronRight, FaChevronDown, FaCopy, FaTrash, FaPen, FaObjectGroup, FaObjectUngroup, FaLayerGroup } from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaChevronRight, FaChevronDown, FaCopy, FaTrash, FaPen, FaObjectGroup, FaObjectUngroup, FaLayerGroup, FaDraftingCompass, FaPencilRuler, FaCube, FaCircle, FaCubes } from 'react-icons/fa';
 import { SceneObject } from '../../types/scene.types';
 
 const Container = styled.div<{ $theme: 'light' | 'dark' }>`
@@ -99,6 +99,27 @@ const RenameInput = styled.input<{ $theme: 'light' | 'dark' }>`
   }
 `;
 
+// Utility to get children of an object
+const getChildren = (objects: SceneObject[], parentId: string | null) =>
+  objects.filter(obj => obj.parentId === parentId);
+
+// Utility to get icon by type
+const getTypeIcon = (type: string) => {
+  switch (type) {
+    case 'workplane': return <FaDraftingCompass style={{ color: '#1976d2' }} />;
+    case 'sketch': return <FaPencilRuler style={{ color: '#ff9900' }} />;
+    case 'group': return <FaObjectGroup style={{ color: '#8e24aa' }} />;
+    case 'cube': return <FaCube style={{ color: '#607d8b' }} />;
+    case 'sphere': return <FaCircle style={{ color: '#607d8b' }} />;
+    case 'cylinder': return <FaCubes style={{ color: '#607d8b' }} />;
+    default: return <FaLayerGroup style={{ color: '#888' }} />;
+  }
+};
+
+// (Optional) Active workplane/sketch highlighting (future-proof)
+const activeWorkplaneId = null; // Replace with store value if/when added
+const activeSketchId = null; // Replace with store value if/when added
+
 export function ModelStructureContent() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [contextMenu, setContextMenu] = useState<{
@@ -118,6 +139,7 @@ export function ModelStructureContent() {
   const ungroupObjects = useSceneStore(state => state.ungroupObjects);
   const mergeObjects = useSceneStore(state => state.mergeObjects);
   const theme = useSettingsStore(state => state.theme);
+  const setActiveSketchId = useSceneStore(state => state.setActiveSketchId);
 
   const toggleExpanded = useCallback((e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -145,7 +167,13 @@ export function ModelStructureContent() {
     } else {
       setSelectedObjects([object.id]);
     }
-  }, [selectedObjectIds, setSelectedObjects]);
+    // Set active sketch if a sketch is selected, otherwise clear
+    if (object.type === 'sketch') {
+      setActiveSketchId?.(object.id);
+    } else {
+      setActiveSketchId?.(null);
+    }
+  }, [selectedObjectIds, setSelectedObjects, setActiveSketchId]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, object: SceneObject) => {
     e.preventDefault();
@@ -222,76 +250,73 @@ export function ModelStructureContent() {
     return () => window.removeEventListener('click', handleClickOutside);
   }, []);
 
-  const renderObject = useCallback((object: SceneObject, depth: number = 0) => {
-    const isSelected = selectedObjectIds.includes(object.id);
-    const hasChildren = object.type === 'group' && object.children.length > 0;
-    const isExpanded = expandedGroups.has(object.id);
-    const isRenaming = renamingId === object.id;
-
-    return (
-      <React.Fragment key={object.id}>
-        <Item
-          isSelected={isSelected}
-          depth={depth}
-          onClick={(e) => handleSelect(e, object)}
-          onContextMenu={(e) => handleContextMenu(e, object)}
-          $theme={theme}
-        >
-          {hasChildren && (
-            <IconButton 
-              onClick={(e) => toggleExpanded(e, object.id)} 
-              $theme={theme}
-            >
-              {isExpanded ? <FaChevronDown size={12} /> : <FaChevronRight size={12} />}
-            </IconButton>
-          )}
-          <IconButton 
-            onClick={(e) => toggleVisibility(e, object)} 
+  // Recursive render function
+  const renderObjectTree = (
+    objects: SceneObject[],
+    parentId: string | null = null,
+    depth: number = 0
+  ) => {
+    return getChildren(objects, parentId).map(object => {
+      const isSelected = selectedObjectIds.includes(object.id);
+      const isExpanded = expandedGroups.has(object.id);
+      const isRenaming = renamingId === object.id;
+      const hasChildren = getChildren(objects, object.id).length > 0;
+      const isActive = object.id === activeWorkplaneId || object.id === activeSketchId;
+      return (
+        <React.Fragment key={object.id}>
+          <Item
+            isSelected={isSelected || isActive}
+            depth={depth}
+            onClick={(e) => handleSelect(e, object)}
+            onContextMenu={(e) => handleContextMenu(e, object)}
             $theme={theme}
           >
-            {object.visible ? <FaEye size={12} /> : <FaEyeSlash size={12} />}
-          </IconButton>
-          {isRenaming ? (
-            <RenameInput
-              autoFocus
-              defaultValue={object.name}
-              onKeyDown={handleRenameSubmit}
-              onClick={(e) => e.stopPropagation()}
+            {hasChildren && (
+              <IconButton 
+                onClick={(e) => toggleExpanded(e, object.id)} 
+                $theme={theme}
+              >
+                {isExpanded ? <FaChevronDown size={12} /> : <FaChevronRight size={12} />}
+              </IconButton>
+            )}
+            <IconButton $theme={theme} style={{ pointerEvents: 'none' }}>
+              {getTypeIcon(object.type)}
+            </IconButton>
+            <IconButton 
+              onClick={(e) => toggleVisibility(e, object)} 
               $theme={theme}
-            />
-          ) : (
-            object.name
+            >
+              {object.visible ? <FaEye size={12} /> : <FaEyeSlash size={12} />}
+            </IconButton>
+            {isRenaming ? (
+              <RenameInput
+                autoFocus
+                defaultValue={object.name}
+                onKeyDown={handleRenameSubmit}
+                onClick={(e) => e.stopPropagation()}
+                $theme={theme}
+              />
+            ) : (
+              <span style={{ marginLeft: 8, fontWeight: isActive ? 700 : 400 }}>
+                {object.name}
+              </span>
+            )}
+          </Item>
+          {hasChildren && isExpanded && (
+            <ItemList>
+              {renderObjectTree(objects, object.id, depth + 1)}
+            </ItemList>
           )}
-        </Item>
-        {hasChildren && isExpanded && object.children.map(childId => {
-          const child = objects.find(obj => obj.id === childId);
-          if (child) {
-            return renderObject(child, depth + 1);
-          }
-          return null;
-        })}
-      </React.Fragment>
-    );
-  }, [
-    selectedObjectIds,
-    expandedGroups,
-    renamingId,
-    theme,
-    handleSelect,
-    handleContextMenu,
-    toggleExpanded,
-    toggleVisibility,
-    handleRenameSubmit,
-    objects
-  ]);
-
-  const rootObjects = objects.filter(obj => !obj.parentId);
+        </React.Fragment>
+      );
+    });
+  };
 
   return (
     <Container $theme={theme}>
       <Header $theme={theme}>Model Structure</Header>
       <ItemList>
-        {rootObjects.map(object => renderObject(object))}
+        {renderObjectTree(objects, null, 0)}
       </ItemList>
 
       {contextMenu && (
